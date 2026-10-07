@@ -7,7 +7,7 @@ description: Use for any work involving Apify Actors, runs, datasets, authentica
 
 ## Workflow
 
-1. Read `doc/06-apify-integration.md` and inspect the existing Connector.
+1. Read `docs/06-apify-integration.md` and inspect the existing Connector.
 2. Keep `APIFY_API_TOKEN` in Environment only.
 3. Send authentication as `Authorization: Bearer ...`; never put token in URLs.
 4. Use Actor IDs with `~`, for example `compass~crawler-google-places`.

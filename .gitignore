@@ -17,6 +17,10 @@ build/
 dist/
 .eggs/
 
+# Local project tools and indexes
+.tools/
+.codebase-memory/
+
 # Local application data
 *.db
 *.sqlite

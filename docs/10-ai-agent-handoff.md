@@ -2,7 +2,7 @@
 
 ## قبل از تغییر
 
-1. `doc/README.md` و `README.md` را بخوان.
+1. `docs/README.md` و `README.md` را بخوان.
 2. وضعیت Git و فایل‌های تغییرکرده را بررسی کن.
 3. `.env` و tokenها را هرگز نمایش نده.
 4. قرارداد `Lead` و Connector را بشناس.

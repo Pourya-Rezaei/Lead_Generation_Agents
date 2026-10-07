@@ -34,6 +34,7 @@ Google Maps API رسمی در پروژه استفاده نمی‌شود؛ فقط
 9. [نقشه راه](09-roadmap.md)
 10. [راهنمای تحویل به ایجنت هوش مصنوعی](10-ai-agent-handoff.md)
 11. [تاریخچه تغییرات و وضعیت فعلی](11-change-history.md)
+12. [راهنمای کار Agent با CBM](12-cbm-agent-guide.md)
 
 ## ساختار کد
 

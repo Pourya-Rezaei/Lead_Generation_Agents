@@ -9,6 +9,7 @@
 - افزودن Git و ایجاد branch اصلی `main`.
 - ایجاد اولین commit پروژه با پیام `chore: initialize project version control`.
 - اجرای تست‌های آفلاین و بدون درخواست واقعی به Apify.
+- نصب local ابزار `codebase-memory-mcp` در `.tools/` و ایجاد راهنمای عملیاتی برای Agentها.
 
 ## تغییرات معماری
 
