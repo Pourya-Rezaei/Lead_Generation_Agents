@@ -17,3 +17,21 @@
 - قبل از تغییر قرارداد داده، تست و مستندات را به‌روزرسانی کن.
 - فقط داده عمومی و حرفه‌ای کسب‌وکار را پردازش کن.
 - برای هر تغییر، تست‌های مرتبط را اجرا و نتیجه را گزارش کن.
+
+## مهارت‌های استفاده‌شده در توسعه پروژه
+
+این فهرست برای ثبت سابقه تصمیم‌های مهندسی و انتخاب skillها نگهداری می‌شود:
+
+| Skill | کاربرد در این پروژه |
+|---|---|
+| `project-apify-integration` | طراحی و ممیزی Actor، dataset، احراز هویت، retry و تست mock شده Apify |
+| `project-data-quality` | normalization، scoring، provenance و deduplication لیدها |
+| `project-privacy-compliance` | محدودسازی داده به اطلاعات عمومی و حرفه‌ای و جلوگیری از استنتاج مالکیت/person data |
+| `project-lead-extraction` | تعریف query/location، محدودیت source و قرارداد استخراج لید |
+| `project-python-testing` | TDD، تست‌های regression، تست آفلاین و معیار پذیرش Python |
+| `brainstorming` | انتخاب رویکرد اصلاح مرحله‌ای و تأیید طراحی معماری پیش از اجرا |
+| `writing-plans` | تبدیل طراحی تأییدشده به برنامه اجرایی وابستگی‌دار و قابل‌تست |
+| `documentation-writer` | ثبت تغییرات، معماری، عملیات و وضعیت نهایی در مستندات Diátaxis-oriented |
+| `git-commit` | ایجاد commitهای Conventional Commit و جلوگیری از ورود secretها به تاریخچه |
+
+جزئیات تغییرات و نتایج اعتبارسنجی در [تاریخچه تغییرات](../doc/11-change-history.md) ثبت شده است.
