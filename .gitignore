@@ -1,0 +1,30 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+
+# Python environments and caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build and packaging artifacts
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Local application data
+*.db
+*.sqlite
+*.sqlite3
+exports/
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+*.swp
