@@ -38,7 +38,10 @@ class JobWorker:
                     str(job.request.get("pricing_version", "unknown")),
                 )
                 reservation_id = reservation.reservation_id
-            result = handler(job.request)
+            request = dict(job.request)
+            if job.provider_run_id:
+                request["provider_run_id"] = job.provider_run_id
+            result = handler(request)
             if isinstance(result, dict):
                 steps = list(result.get("completed_steps", []))
                 provider_run_id = result.get("provider_run_id")
