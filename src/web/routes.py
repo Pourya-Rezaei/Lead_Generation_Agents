@@ -1,7 +1,13 @@
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from ..errors import CampaignNotFoundError
+from ..errors import (
+    ApifyCredentialError,
+    ApifyMalformedResponseError,
+    ApifyNotFoundError,
+    ApifyTransientError,
+)
+from ..service import _safe_error_summary
 from .schemas import CampaignForm
 
 router = APIRouter()
@@ -78,4 +84,64 @@ def search_form(request: Request):
         request=request,
         name="search.html",
         context={"campaigns": request.app.state.store.campaigns(), "source": "places"},
+    )
+
+
+@router.post("/search", response_class=HTMLResponse)
+def run_search(
+    request: Request,
+    query: str = Form(...),
+    location: str = Form(...),
+    campaign_id: str = Form(...),
+    limit: str = Form("20"),
+    source: str = Form("places"),
+):
+    form = {
+        "query": query,
+        "location": location,
+        "campaign_id": campaign_id,
+        "limit": limit,
+    }
+    campaigns = request.app.state.store.campaigns()
+    try:
+        if source != "places":
+            raise ValueError("Only the places source is enabled.")
+        parsed_limit = int(limit)
+        if not query.strip() or not location.strip():
+            raise ValueError("Query and location are required.")
+        result = request.app.state.service.search(
+            query,
+            location,
+            source=source,
+            limit=parsed_limit,
+            campaign_id=campaign_id,
+        )
+    except (ValueError, ApifyCredentialError, ApifyNotFoundError,
+            ApifyTransientError, ApifyMalformedResponseError) as exc:
+        status_code = 400 if isinstance(exc, ValueError) else 502
+        return _templates(request).TemplateResponse(
+            request=request,
+            name="search.html",
+            context={
+                "campaigns": campaigns,
+                "form": form,
+                "source": source,
+                "error": _safe_error_summary(exc),
+            },
+            status_code=status_code,
+        )
+    if result.status.value in {"failed", "aborted", "timed_out"}:
+        return _templates(request).TemplateResponse(
+            request=request,
+            name="search.html",
+            context={
+                "campaigns": campaigns,
+                "form": form,
+                "source": source,
+                "error": "Search did not complete successfully.",
+            },
+            status_code=502,
+        )
+    return RedirectResponse(
+        f"/campaigns/{campaign_id}?message=Search+completed", status_code=303
     )

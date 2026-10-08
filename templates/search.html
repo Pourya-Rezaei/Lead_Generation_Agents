@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}New search · Local Lead Generation{% endblock %}
+{% block content %}
+<h1>Run a Places search</h1>
+<form method="post" action="/search">
+  <label for="query">Business or job query</label>
+  <input id="query" name="query" value="{{ form.query if form else '' }}" required>
+  <label for="location">City or location</label>
+  <input id="location" name="location" value="{{ form.location if form else '' }}" required>
+  <label for="campaign_id">Campaign</label>
+  <select id="campaign_id" name="campaign_id" required>
+    {% for campaign in campaigns %}
+      <option value="{{ campaign.campaign_id }}" {% if form and form.campaign_id == campaign.campaign_id %}selected{% endif %}>{{ campaign.name }}</option>
+    {% endfor %}
+  </select>
+  <label for="limit">Maximum results</label>
+  <input id="limit" name="limit" type="number" min="1" max="100" value="{{ form.limit if form else 20 }}" required>
+  <input type="hidden" name="source" value="places">
+  <button type="submit">Run search</button>
+</form>
+{% endblock %}
