@@ -5,6 +5,7 @@ from collections.abc import Callable
 from decimal import Decimal
 
 from .budget import BudgetRepository
+from .cache import ExecutionCache
 from typing import Any
 
 from .jobs import Job, JobRepository
@@ -21,7 +22,12 @@ class JobWorker:
         if job is None:
             return None
         reservation_id = None
+        cache = ExecutionCache(self.connection)
         try:
+            cached = None if job.request.get("force_refresh") else cache.get(job.request)
+            if cached is not None:
+                self.connection.execute("UPDATE jobs SET state = 'succeeded', progress = ?, lease_until = NULL, updated_at = datetime('now') WHERE job_id = ? AND worker_id = ? AND fencing_token = ?", (__import__('json').dumps({"completed_steps": cached.get("completed_steps", []), "cached": True}), job.job_id, self.worker_id, job.fencing_token))
+                return self.jobs.get(job.job_id)
             if job.request.get("estimated_cost") is not None:
                 reservation = BudgetRepository(self.connection).reserve(
                     job.job_id,
@@ -33,6 +39,7 @@ class JobWorker:
                 )
                 reservation_id = reservation.reservation_id
             steps = handler(job.request)
+            cache.put(job.request, {"completed_steps": steps})
             current = self.jobs.get(job.job_id)
             if current is None:
                 return None
