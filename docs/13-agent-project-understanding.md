@@ -139,6 +139,7 @@ PROJECT="Local_Lead_Generation_Agents"
 | تغییر migration یا schema | `migrations`, `storage`, `repositories` و migration tests |
 | تغییر export | `exporters`, CLI و export tests |
 | تغییر CLI | `cli`, `config`, `service` و تست‌های مربوط |
+| تغییر Web UI | `src/web`, `templates`, `static`, تست‌های web و مستندات اجرای محلی |
 | تغییر امنیت یا privacy | مرزهای credential، raw data، export و مستندات privacy |
 
 این جدول فقط نقطه شروع است. محدوده واقعی باید با graph و source تأیید شود.
@@ -177,6 +178,18 @@ Entry point
 ```
 
 فقط پس از ساختن این نقشه، source code مرتبط را باز کن.
+
+## وضعیت فعلی Web UI
+
+لایهٔ وب در `src/web/` یک پنل فارسی و RTL با FastAPI و Jinja است. routeهای فعلی شامل Dashboard، فهرست/ساخت/نمایش Campaign، اجرای synchronous جست‌وجوی `places` و export JSON/CSV هستند. `templates/` و `static/styles.css` لایهٔ presentation را تشکیل می‌دهند؛ routeها نباید مستقیماً SQL یا Apify را فراخوانی کنند.
+
+برای اجرای محلی از ریشهٔ repository استفاده کن:
+
+```bash
+uvicorn src.web.app:app --host 127.0.0.1 --port 8000
+```
+
+پنل هنوز local-only است و احراز هویت، چندکاربره‌بودن، queue و sourceهای social/search در آن فعال نیستند. baseline فعلی تست‌ها `89 passed` است و تست‌های web از `TestClient` و fixtureهای deterministic استفاده می‌کنند.
 
 ## مرحله شش: خواندن حداقلی و هدفمند source code
 

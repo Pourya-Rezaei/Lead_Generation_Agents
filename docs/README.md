@@ -20,8 +20,11 @@
 - ساخت خودکار پوشهٔ مقصد export
 - تست‌های unit و integration کاملاً mock شده
 - CLI فعال: `search`، `campaign create/list/show` و `export`
+- پنل وب محلی فارسی و راست‌به‌چپ با FastAPI/Jinja، CSS responsive و مسیرهای مدیریت Campaign، جست‌وجو و export
+- اجرای پنل فقط روی `127.0.0.1`؛ بدون احراز هویت و دسترسی شبکه‌ای در MVP
+- تست کامل فعلی: `89 passed`
 
-منبع `web` و Connectorهای Instagram، TikTok و YouTube در حال حاضر فعال نیستند و نباید به‌عنوان قابلیت آماده معرفی شوند.
+منبع `web` و Connectorهای Instagram، TikTok و YouTube در حال حاضر فعال نیستند و نباید به‌عنوان قابلیت آماده معرفی شوند. در رابط وب، فقط `places` فعال است.
 
 ## مسیر مطالعه پیشنهادی
 

@@ -72,13 +72,28 @@
 آخرین اعتبارسنجی آفلاین:
 
 ```text
-pytest -q          -> 44 passed
-pip check          -> No broken requirements found
-Pylance diagnostics -> no errors
+pytest -q          -> 89 passed
 CLI --help         -> successful
+Web smoke routes   -> /, /campaigns, /search و /static/styles.css موفق
 ```
 
+هشدار deprecation مربوط به ترکیب Starlette TestClient و httpx مانع اجرای تست‌ها نیست.
+
 هیچ اجرای زنده‌ای علیه Apify در این مرحله انجام نشد.
+
+## رابط وب فارسی و RTL
+
+- FastAPI، Jinja2 و `python-multipart` به وابستگی‌های runtime اضافه شدند.
+- پنل محلی در `src/web/` شامل Dashboard، Campaign، جست‌وجوی synchronous Places و export JSON/CSV است.
+- templateهای فارسی با `lang="fa"` و `dir="rtl"` و stylesheet مستقل responsive در `static/styles.css` اضافه شدند.
+- پنل فقط روی localhost در نظر گرفته شده و هنوز احراز هویت، چندکاربره‌بودن و queue ندارد.
+- تست‌های Web UI و export به suite اضافه شدند و baseline فعلی به `89 passed` رسید.
+
+## Codebase Memory
+
+- index کامل پس از تغییرات UI refresh شد: `668 nodes` و `2233 edges`، با `parse_unusable: 0`.
+- parse جزئی template جست‌وجو به syntax Jinja مربوط است و خطای runtime محسوب نمی‌شود.
+- `.env`، دیتابیس محلی و cacheها عمداً خارج از index/commit نگه داشته می‌شوند.
 
 ## تصمیم‌های باقی‌مانده برای توسعه آینده
 
@@ -105,7 +120,7 @@ CLI --help         -> successful
 - provenance/evidence و confidence دقیق‌تر برای داده‌های تکمیلی
 - افزودن فیلترهای quality/score به export
 - سپس افزودن Google Search و Connectorهای اجتماعی با privacy review
-- در مراحل بعد queue، cache، dashboard، CRM export و budget guard
+- در مراحل بعد queue، cache، history مقایسهٔ Runها، CRM export و budget guard
 
 ## نمودار معماری MVP
 

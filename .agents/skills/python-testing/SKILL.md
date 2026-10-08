@@ -22,5 +22,10 @@ description: Use for every Python code change, bug fix, connector change, schema
 - SQLite round-trip and upsert
 - JSON/CSV export
 - credential and timeout failures
+- FastAPI route status codes and rendered Persian/RTL templates
+- JSON/CSV response content type and download headers
+- static asset smoke checks
+- safe error rendering that never leaks tokens or raw exception details
 
+For Web UI tests, use `TestClient` with deterministic service/store fakes; do not start a real server or call Apify.
 Never use a real API token in tests.

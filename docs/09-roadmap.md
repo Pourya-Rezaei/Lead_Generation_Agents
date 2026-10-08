@@ -25,7 +25,7 @@
 - فیلتر export بر اساس score، وجود وب‌سایت و کیفیت داده
 - تست regression برای رکوردهای تکراری و داده‌های ناقص
 
-## فاز رابط کاربری وب MVP
+## فاز رابط کاربری وب MVP — تکمیل‌شده
 
 - پنل محلی FastAPI و Jinja برای کاربران غیر-CLI
 - مدیریت Campaign
@@ -49,7 +49,7 @@
 
 - queue و اجرای async
 - cache و idempotency
-- داشبورد وب محلی
+- history و مقایسهٔ Runها در پنل وب
 - history و مقایسهٔ Runها
 - export به CRM
 - budget guard و rate-limit policy

@@ -8,6 +8,9 @@ flowchart LR
     ENV[Environment\nAPIFY_API_TOKEN + config] --> CFG[Settings]
     CLI --> CFG
     CLI --> SVC[SearchLeadsService]
+    BROWSER[مرورگر محلی] --> WEB[FastAPI Web UI]
+    WEB --> SVC
+    WEB --> STORE[LeadStore]
     CFG --> SVC
 
     SVC --> REG[ConnectorRegistry]
@@ -64,6 +67,7 @@ CLI -> Settings -> Connector -> Apify Actor -> Dataset
 ## اجزا
 
 - CLI: اعتبارسنجی ورودی و نمایش نتیجه؛ بدون orchestration یا scraping logic.
+- Web UI: رابط فارسی/RTL برای Dashboard، Campaign، جست‌وجوی Places و export؛ بدون SQL مستقیم یا اتصال مستقیم به Apify.
 - `SearchLeadsService`: اجرای use case، lifecycle اجرا، ذخیره لید و metadata.
 - `ConnectorRegistry`: انتخاب منبع؛ در MVP فقط `places` فعال است و `web` غیرفعال است.
 - Connector: اجرای منبع و برگرداندن `SearchResult` شامل leads، status، provenance و raw records محدود.
