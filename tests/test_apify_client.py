@@ -63,6 +63,18 @@ def test_run_actor_uses_header_and_returns_run_data():
     assert kwargs["json"] == {"q": "cafe"}
 
 
+def test_wait_for_run_polls_existing_run_until_terminal():
+    transport = ScriptedClient([
+        response(200, {"data": {"id": "run-1", "status": "RUNNING"}}),
+        response(200, {"data": {"id": "run-1", "status": "SUCCEEDED", "defaultDatasetId": "ds-1"}}),
+    ])
+
+    run = make_client(transport).wait_for_run("run-1", timeout=5, poll_interval=0.01)
+
+    assert run["status"] == "SUCCEEDED"
+    assert [request[0] for request in transport.requests] == ["GET", "GET"]
+
+
 def test_run_actor_allows_status_without_dataset_id():
     transport = ScriptedClient([
         response(200, {"data": {"id": "run-1", "status": "RUNNING"}})

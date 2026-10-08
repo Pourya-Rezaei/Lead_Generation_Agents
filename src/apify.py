@@ -94,6 +94,28 @@ class ApifyClient:
         payload = self._request_json("post", f"{self.base_url}/actor-runs/{quote(run_id, safe='')}/abort")
         return self._validate_run_data(payload)
 
+    def wait_for_run(
+        self,
+        run_id: str,
+        *,
+        timeout: float = 300,
+        poll_interval: float = 2,
+    ) -> dict[str, Any]:
+        """Poll an existing run until it reaches a terminal status."""
+        if timeout <= 0 or poll_interval <= 0:
+            raise ValueError("timeout and poll_interval must be positive")
+        deadline = time.monotonic() + timeout
+        terminal = {"SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"}
+        while True:
+            run = self.get_run(run_id)
+            status = str(run.get("status", "")).upper()
+            if status in terminal:
+                return run
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ApifyTransientError("Apify run polling timed out")
+            self._sleep(min(poll_interval, remaining))
+
     @staticmethod
     def _validate_run_data(payload: Any) -> dict[str, Any]:
         if not isinstance(payload, dict):
