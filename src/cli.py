@@ -17,7 +17,7 @@ app.add_typer(jobs_app, name="jobs")
 
 @app.command("worker")
 def worker_once(
-    once: bool = typer.Option(True, "--once/--loop", help="Process one job or keep polling."),
+    once: bool = typer.Option(True, "--once/--loop", help="Process one job or drain the queue."),
     worker_id: str = typer.Option("local-worker", "--worker-id"),
     db: str | None = typer.Option(None, "--db"),
 ) -> None:
@@ -26,13 +26,21 @@ def worker_once(
     from .execution.worker import JobWorker
     from .migrations import migrate
     settings = Settings(database_path=db or Settings().database_path)
+    processed_count = 0
     with sqlite3.connect(settings.database_path) as connection:
         migrate(connection)
-        processed = JobWorker(connection, worker_id).run_once(places_handler(SearchLeadsService(settings)))
-    if processed is None:
-        typer.echo("No queued job")
-    else:
-        typer.echo(f"Processed job '{processed.job_id}' ({processed.state})")
+        worker = JobWorker(connection, worker_id)
+        handler = places_handler(SearchLeadsService(settings))
+        while True:
+            processed = worker.run_once(handler)
+            if processed is None:
+                if processed_count == 0:
+                    typer.echo("No queued job")
+                break
+            processed_count += 1
+            typer.echo(f"Processed job '{processed.job_id}' ({processed.state})")
+            if once:
+                break
 
 
 @app.command()
