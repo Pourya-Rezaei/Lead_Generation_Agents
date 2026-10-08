@@ -37,7 +37,7 @@
 
 matching محافظه‌کارانه است: source ID یکسان merge، domain+address یکسان merge، شعبه‌های متفاوت separate و شواهد ضعیف review می‌شوند. نبود evidence به‌معنای false بودن داده نیست و confidence ناشناخته باید ناشناخته بماند. داده‌ای که صرفاً از تشابه نام به دست آمده، مالکیت قطعی محسوب نمی‌شود.
 
-`src/quality/metrics.py` completeness را جدا از score قدیمی محاسبه می‌کند. export CLI فیلترهای اختیاری `--min-completeness`، `--has-phone` و `--has-website` دارد؛ بدون این flags قرارداد JSON/CSV قبلی تغییر نمی‌کند.
+`src/quality/metrics.py` completeness را جدا از score قدیمی محاسبه می‌کند. export CLI فیلترهای اختیاری `--min-completeness`، `--has-phone` و `--has-website` دارد؛ بدون این flags قرارداد JSON/CSV قبلی تغییر نمی‌کند. جدول `lead_merge_audit` دلیل، confidence، زمان و snapshot رکورد ادغام‌شده را نگه می‌دارد تا merge قابل audit و undo باشد.
 
 ## حریم خصوصی
 

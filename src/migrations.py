@@ -6,7 +6,7 @@ import sqlite3
 import uuid
 from collections.abc import Callable
 
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
 
 
 def _table_columns(connection: sqlite3.Connection, table: str) -> set[str]:
@@ -138,7 +138,18 @@ def _migration_3(connection: sqlite3.Connection) -> None:
     )
 
 
-MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (_migration_1, _migration_2, _migration_3)
+def _migration_4(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS lead_merge_audit ("
+        "merge_id TEXT PRIMARY KEY, source_lead_id TEXT NOT NULL, target_lead_id TEXT NOT NULL, "
+        "reason TEXT NOT NULL, confidence REAL NOT NULL, created_at TEXT NOT NULL, "
+        "source_key TEXT NOT NULL, target_key TEXT NOT NULL, source_payload TEXT NOT NULL, "
+        "undone_at TEXT, status TEXT NOT NULL DEFAULT 'active')"
+    )
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_merge_source ON lead_merge_audit(source_lead_id)")
+
+
+MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (_migration_1, _migration_2, _migration_3, _migration_4)
 
 
 def migrate(connection: sqlite3.Connection) -> int:
