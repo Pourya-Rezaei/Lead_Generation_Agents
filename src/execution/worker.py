@@ -38,7 +38,14 @@ class JobWorker:
                     str(job.request.get("pricing_version", "unknown")),
                 )
                 reservation_id = reservation.reservation_id
-            steps = handler(job.request)
+            result = handler(job.request)
+            if isinstance(result, dict):
+                steps = list(result.get("completed_steps", []))
+                provider_run_id = result.get("provider_run_id")
+                if isinstance(provider_run_id, str) and provider_run_id:
+                    self.jobs.update_provider_run(job.job_id, self.worker_id, job.fencing_token, provider_run_id, "SUCCEEDED")
+            else:
+                steps = list(result)
             cache.put(job.request, {"completed_steps": steps})
             current = self.jobs.get(job.job_id)
             if current is None:

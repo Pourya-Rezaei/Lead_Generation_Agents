@@ -43,6 +43,7 @@ class SearchLeadsService:
         self.settings = settings
         self.store = store or LeadStore(settings.database_path)
         self.registry = registry or ConnectorRegistry()
+        self.last_provider_run_id: str | None = None
 
     def search(
         self,
@@ -71,6 +72,12 @@ class SearchLeadsService:
                 raise ValueError(f"APIFY_API_TOKEN is required for {source}")
             connector = self.registry.create(source, self.settings)
             result = connector.search(query, location, limit)
+            metadata = getattr(connector, "failure_metadata", {})
+            self.last_provider_run_id = (
+                metadata.get("provider_run_id")
+                if isinstance(metadata, dict)
+                else None
+            )
         except Exception as exc:
             try:
                 self.store.record_failed_search(
