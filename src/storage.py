@@ -16,6 +16,7 @@ from .repositories import (
     UpsertSummary,
 )
 from .results import RunStatus, SearchResult
+from .quality.repository import QualityRepository
 
 
 class LeadStore:
@@ -120,8 +121,12 @@ class LeadStore:
             summary = UpsertSummary()
             if not failed:
                 summary = LeadRepository(db).upsert(result.leads)
+                quality = QualityRepository(db)
                 for lead in result.leads:
                     campaigns.add_lead(campaign_id, lead.dedup_key(), seen_at=now)
+                    row = db.execute("SELECT lead_id FROM leads WHERE dedup_key = ?", (lead.dedup_key(),)).fetchone()
+                    if row is not None:
+                        quality.record_lead_observation(row[0], lead, run_id=run_id)
                 RawRecordRepository(db).save_allowlisted(
                     run_id, result.raw_records, recorded_at=now
                 )

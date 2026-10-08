@@ -28,6 +28,19 @@ class QualityRepository:
         )
         return evidence_id
 
+    def record_lead_observation(self, lead_id: str, lead, *, run_id: str | None = None) -> Observation:
+        observation = Observation(
+            observation_id=uuid.uuid4().hex,
+            lead_id=lead_id,
+            source=lead.source or "unknown",
+            source_record_id=lead.source_id,
+            source_url=str(lead.source_url) if lead.source_url else None,
+            run_id=run_id,
+            fields={key: value for key, value in lead.model_dump(mode="json").items() if value not in (None, "")},
+        )
+        self.save_observation(observation)
+        return observation
+
     def observations_for_lead(self, lead_id: str) -> list[Observation]:
         rows = self.connection.execute(
             "SELECT observation_id, lead_id, source, source_record_id, source_url, run_id, collected_at, fields, mapper_version FROM observations WHERE lead_id = ? ORDER BY collected_at",

@@ -4,7 +4,9 @@ from src.domain import Lead
 from src.migrations import CURRENT_SCHEMA_VERSION, migrate
 from src.quality.matching import match
 from src.quality.normalization import canonicalize
+from src.results import RunStatus, SearchResult
 from src.storage import LeadStore
+from datetime import UTC, datetime
 
 
 def test_phase_a_migration_adds_stable_identity_and_observations(tmp_path):
@@ -29,6 +31,16 @@ def test_lead_id_survives_payload_update(tmp_path):
     store.upsert([first.model_copy(update={"phone": "09121111111"})])
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT lead_id FROM leads").fetchone()[0] == original
+
+
+def test_search_persistence_records_observation(tmp_path):
+    path = tmp_path / "quality.db"
+    store = LeadStore(str(path))
+    lead = Lead(name="Cafe", source="places", source_id="p-1")
+    result = SearchResult(source="places", run_id="run-1", status=RunStatus.SUCCEEDED, finished_at=datetime.now(UTC), leads=[lead])
+    store.persist_search_result("general", result, "cafe", "Tehran")
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT source, source_record_id FROM observations").fetchone() == ("places", "p-1")
 
 
 def test_matching_does_not_merge_same_domain_different_branches():
