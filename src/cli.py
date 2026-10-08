@@ -87,11 +87,18 @@ def jobs_submit(
     limit: int = typer.Option(20, min=1),
     campaign: str | None = typer.Option(None, "--campaign"),
     idempotency_key: str = typer.Option(..., "--idempotency-key"),
+    estimated_cost: str | None = typer.Option(None, "--estimated-cost"),
+    max_cost: str | None = typer.Option(None, "--max-cost"),
+    currency: str = typer.Option("USD", "--currency"),
     db: str | None = typer.Option(None, "--db"),
 ) -> None:
     from .execution.service import JobService
     settings = Settings()
     request = {"query": query, "location": location, "source": source, "limit": limit, "campaign_id": campaign}
+    if estimated_cost is not None:
+        request["estimated_cost"] = estimated_cost
+        request["max_cost"] = max_cost or estimated_cost
+        request["currency"] = currency
     job = JobService(db or settings.database_path).submit(request, idempotency_key)
     typer.echo(f"Submitted job '{job.job_id}' ({job.state})")
 
