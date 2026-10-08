@@ -43,7 +43,7 @@ def test_search_service_records_missing_token_without_leads_or_raw_records(tmp_p
     database = str(tmp_path / "failed.db")
     store = LeadStore(database)
     service = SearchLeadsService(
-        Settings(database_path=database),
+        Settings(database_path=database, _env_file=None),
         store=store,
     )
 
