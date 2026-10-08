@@ -32,6 +32,51 @@ def test_legacy_upgrade_is_idempotent_and_preserves_payload(tmp_path):
         assert {"schema_metadata", "leads", "runs", "raw_records"} <= tables
 
 
+def test_campaign_migration_creates_general_and_is_idempotent(tmp_path):
+    path = tmp_path / "empty.db"
+    with sqlite3.connect(path) as connection:
+        assert migrate(connection) == CURRENT_SCHEMA_VERSION
+        assert migrate(connection) == CURRENT_SCHEMA_VERSION
+        assert connection.execute(
+            "SELECT campaign_id, name, is_default FROM campaigns"
+        ).fetchall() == [("general", "جست‌وجوهای عمومی", 1)]
+        assert connection.execute("SELECT campaign_id FROM runs").fetchall() == []
+
+
+def test_campaign_migration_backfills_runs_and_preserves_raw_records(tmp_path):
+    path = tmp_path / "old.db"
+    with sqlite3.connect(path) as connection:
+        connection.executescript(
+            "CREATE TABLE schema_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);"
+            "INSERT INTO schema_metadata VALUES ('schema_version', '1');"
+            "CREATE TABLE runs (run_id TEXT PRIMARY KEY, status TEXT NOT NULL, "
+            "payload TEXT NOT NULL, started_at TEXT NOT NULL, finished_at TEXT, error TEXT);"
+            "INSERT INTO runs VALUES ('old-run', 'succeeded', '{}', '2024-01-01', NULL, NULL);"
+            "CREATE TABLE raw_records (run_id TEXT NOT NULL, record_index INTEGER NOT NULL, "
+            "payload TEXT NOT NULL, recorded_at TEXT NOT NULL, PRIMARY KEY(run_id, record_index));"
+            "INSERT INTO raw_records VALUES ('old-run', 0, '{\"title\":\"Cafe\"}', '2024-01-01');"
+        )
+        assert migrate(connection) == CURRENT_SCHEMA_VERSION
+        assert connection.execute("SELECT campaign_id FROM runs WHERE run_id='old-run'").fetchone() == ("general",)
+        assert connection.execute(
+            "SELECT run_id, record_index, payload, recorded_at FROM raw_records"
+        ).fetchall() == [("old-run", 0, '{"title":"Cafe"}', "2024-01-01")]
+
+
+def test_campaign_constraints_reject_duplicate_name_and_default(tmp_path):
+    path = tmp_path / "constraints.db"
+    with sqlite3.connect(path) as connection:
+        migrate(connection)
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                "INSERT INTO campaigns(campaign_id, name, is_default) VALUES ('second', 'جست‌وجوهای عمومی', 0)"
+            )
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                "INSERT INTO campaigns(campaign_id, name, is_default) VALUES ('second', 'Other', 1)"
+            )
+
+
 def test_migration_rolls_back_on_failure(tmp_path, monkeypatch):
     import leadgen.migrations as migrations
 

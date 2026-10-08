@@ -53,6 +53,36 @@ def _normalize_url(value: object) -> str | None:
     return urlunsplit((parsed.scheme.lower(), netloc, path, parsed.query, ""))
 
 
+class Campaign(BaseModel):
+    campaign_id: str
+    name: str
+    description: str | None = None
+    is_default: bool = False
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("campaign_id", "name", mode="before")
+    @classmethod
+    def validate_required_text(cls, value: object) -> str:
+        text = str(value or "").strip()
+        normalized = " ".join(text.split())
+        if not normalized:
+            raise ValueError("value must not be empty")
+        return normalized
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def normalize_description(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        return _normalize_text(value) or None
+
+
+class CampaignStats(BaseModel):
+    campaign_id: str
+    lead_count: int = Field(ge=0)
+    run_count: int = Field(ge=0)
+
+
 class Lead(BaseModel):
     name: str
     address: str = ""

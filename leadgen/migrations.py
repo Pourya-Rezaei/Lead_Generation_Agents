@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Callable
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 
 
 def _table_columns(connection: sqlite3.Connection, table: str) -> set[str]:
@@ -74,7 +74,39 @@ def _migration_1(connection: sqlite3.Connection) -> None:
     )
 
 
-MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (_migration_1,)
+def _migration_2(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        "CREATE TABLE campaigns ("
+        "campaign_id TEXT PRIMARY KEY CHECK (length(trim(campaign_id)) > 0), "
+        "name TEXT NOT NULL UNIQUE CHECK (length(trim(name)) > 0), "
+        "description TEXT, "
+        "is_default INTEGER NOT NULL DEFAULT 0 CHECK (is_default IN (0, 1)), "
+        "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+    )
+    connection.execute(
+        "CREATE UNIQUE INDEX idx_campaigns_single_default "
+        "ON campaigns(is_default) WHERE is_default = 1"
+    )
+    connection.execute(
+        "INSERT INTO campaigns(campaign_id, name, is_default) "
+        "VALUES('general', 'جست‌وجوهای عمومی', 1)"
+    )
+    connection.execute("ALTER TABLE runs ADD COLUMN campaign_id TEXT REFERENCES campaigns(campaign_id)")
+    connection.execute("UPDATE runs SET campaign_id = 'general' WHERE campaign_id IS NULL")
+    connection.execute("CREATE INDEX idx_runs_campaign_id ON runs(campaign_id)")
+    connection.execute(
+        "CREATE TABLE campaign_leads ("
+        "campaign_id TEXT NOT NULL REFERENCES campaigns(campaign_id) ON DELETE RESTRICT, "
+        "lead_dedup_key TEXT NOT NULL REFERENCES leads(dedup_key) ON DELETE CASCADE, "
+        "first_seen_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, "
+        "PRIMARY KEY (campaign_id, lead_dedup_key))"
+    )
+    connection.execute(
+        "CREATE INDEX idx_campaign_leads_lead ON campaign_leads(lead_dedup_key)"
+    )
+
+
+MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (_migration_1, _migration_2)
 
 
 def migrate(connection: sqlite3.Connection) -> int:

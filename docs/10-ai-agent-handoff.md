@@ -44,6 +44,18 @@ grep -RInE 'APIFY_API_TOKEN|GOOGLE_API_KEY' --exclude-dir=.venv --exclude-dir=.g
 - export تو در تو با ساخت خودکار پوشه کار می‌کند.
 - برای آزمایش واقعی از `test-phase2.db` استفاده شده و نباید با `leads.db` اصلی اشتباه شود.
 
+## وضعیت Campaignها
+
+- Campaign پیش‌فرض `general` هنگام initialize دیتابیس ساخته می‌شود.
+- Run هر جست‌وجو به Campaign وصل است؛ `--campaign ID` یک Campaign مشخص می‌کند.
+- `campaign create/list/show` مدیریت Campaignها را فراهم می‌کند.
+- یک Lead می‌تواند عضو چند Campaign باشد؛ جدول اصلی `leads` رکورد یکتا را نگه می‌دارد.
+- ذخیرهٔ نتیجهٔ جست‌وجو (Run، Leadها، عضویت‌ها و raw recordهای مجاز) در یک تراکنش انجام می‌شود.
+- export سراسری همچنان پیش‌فرض است؛ `--campaign ID` خروجی را به همان Campaign محدود می‌کند.
+- برای کارهای روزمره از همان دیتابیس مرکزی استفاده کنید. `--db PATH` فقط وقتی به مسیر دیگری نیاز دارید صریحاً انتخاب شود.
+
+نمونهٔ commandها و رفتار فیلتر در `docs/01-getting-started.md` و `docs/03-technical-reference.md` آمده است.
+
 ## فرض‌های فعلی
 
 - اجرای CLI از ریشه پروژه انجام می‌شود.

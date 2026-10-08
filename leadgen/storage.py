@@ -1,12 +1,21 @@
 import sqlite3
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .domain import Lead
+from .domain import Campaign, CampaignStats, Lead
+from .errors import CampaignNotFoundError
 from .exporters import export_csv, export_json
 from .migrations import migrate
-from .repositories import LeadRepository, RawRecordRepository, RunRepository
+from .repositories import (
+    CampaignRepository,
+    LeadRepository,
+    RawRecordRepository,
+    RunRepository,
+    UpsertSummary,
+)
+from .results import RunStatus, SearchResult
 
 
 class LeadStore:
@@ -39,7 +48,17 @@ class LeadStore:
         payload = {**metadata, "run_id": run_id, "recorded_at": now.isoformat()}
         with self._connect() as db:
             runs = RunRepository(db)
-            runs.start(run_id, payload, started_at=metadata.get("started_at", now))
+            default_campaign_id = CampaignRepository.DEFAULT_CAMPAIGN_ID
+            if CampaignRepository(db).get(default_campaign_id) is None:
+                raise CampaignNotFoundError(
+                    f"default campaign not found: {default_campaign_id}"
+                )
+            runs.start(
+                run_id,
+                payload,
+                started_at=metadata.get("started_at", now),
+                campaign_id=default_campaign_id,
+            )
             if status == "failed":
                 runs.fail(
                     run_id,
@@ -60,12 +79,114 @@ class LeadStore:
                 run_id, raw_records or [], recorded_at=now
             )
 
+    def persist_search_result(
+        self,
+        campaign_id: str,
+        result: SearchResult,
+        query: str,
+        location: str,
+    ) -> UpsertSummary:
+        now = datetime.now(UTC)
+        run_id = result.run_id or f"local-{uuid.uuid4()}"
+        status = result.status.value
+        metadata = {
+            "run_id": run_id,
+            "source": result.source,
+            "dataset_id": result.dataset_id,
+            "status": status,
+            "partial": result.partial,
+            "warnings": result.warnings,
+            "query": query,
+            "location": location,
+            "started_at": result.started_at.isoformat(),
+            "finished_at": result.finished_at.isoformat() if result.finished_at else None,
+        }
+        with self._connect() as db:
+            campaigns = CampaignRepository(db)
+            if campaigns.get(campaign_id) is None:
+                raise CampaignNotFoundError(f"campaign not found: {campaign_id}")
+            runs = RunRepository(db)
+            runs.start(
+                run_id,
+                metadata,
+                started_at=result.started_at,
+                campaign_id=campaign_id,
+            )
+            failed = status in {
+                RunStatus.FAILED.value,
+                RunStatus.ABORTED.value,
+                RunStatus.TIMED_OUT.value,
+            }
+            summary = UpsertSummary()
+            if not failed:
+                summary = LeadRepository(db).upsert(result.leads)
+                for lead in result.leads:
+                    campaigns.add_lead(campaign_id, lead.dedup_key(), seen_at=now)
+                RawRecordRepository(db).save_allowlisted(
+                    run_id, result.raw_records, recorded_at=now
+                )
+            if failed:
+                runs.fail(
+                    run_id,
+                    " ".join(result.warnings) or status.replace("_", " "),
+                    metadata,
+                    finished_at=result.finished_at,
+                )
+            elif status in {RunStatus.PENDING.value, RunStatus.RUNNING.value}:
+                pass
+            else:
+                runs.finish(
+                    run_id,
+                    metadata,
+                    status=status,
+                    finished_at=result.finished_at,
+                )
+        return summary
+
+    def create_campaign(
+        self,
+        name: str,
+        description: str | None = None,
+        campaign_id: str | None = None,
+    ) -> Campaign:
+        with self._connect() as db:
+            return CampaignRepository(db).create(name, description, campaign_id)
+
+    def campaigns(self) -> list[Campaign]:
+        with self._connect() as db:
+            return CampaignRepository(db).list()
+
+    def get_campaign(self, campaign_id: str) -> Campaign | None:
+        with self._connect() as db:
+            return CampaignRepository(db).get(campaign_id)
+
+    def default_campaign(self) -> Campaign:
+        with self._connect() as db:
+            return CampaignRepository(db).get_default()
+
+    def campaign_stats(self, campaign_id: str) -> CampaignStats:
+        with self._connect() as db:
+            return CampaignRepository(db).stats(campaign_id)
+
     def all(self) -> list[Lead]:
         with self._connect() as db:
             return LeadRepository(db).all()
 
-    def export(self, path: str, fmt: str, extended: bool = False) -> None:
-        leads = self.all()
+    def leads_for_campaign(self, campaign_id: str) -> list[Lead]:
+        with self._connect() as db:
+            campaigns = CampaignRepository(db)
+            if campaigns.get(campaign_id) is None:
+                raise CampaignNotFoundError(f"campaign not found: {campaign_id}")
+            return LeadRepository(db).for_campaign(campaign_id)
+
+    def export(
+        self,
+        path: str,
+        fmt: str,
+        extended: bool = False,
+        campaign_id: str | None = None,
+    ) -> None:
+        leads = self.all() if campaign_id is None else self.leads_for_campaign(campaign_id)
         if fmt == "json":
             export_json(leads, path, extended=extended)
         elif fmt == "csv":

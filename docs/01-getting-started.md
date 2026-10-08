@@ -26,23 +26,28 @@ HTTP_TIMEOUT=60
 
 توکن را در command، log، Git یا مستندات عمومی قرار ندهید.
 
-## جست‌وجوی Places
+## ساخت Campaign و جست‌وجو
+
+Campaign کمک می‌کند جست‌وجوها و لیدهای مرتبط را زیر یک شناسه نگه دارید:
 
 ```bash
-leadgen search "دندانپزشکی" "تهران" --source places --limit 20
+leadgen campaign create "دندان‌پزشکی تجریش" --id tajrish-dental
+leadgen search "دندانپزشکی" "تجریش تهران" --source places --limit 20 --campaign tajrish-dental
+leadgen campaign list
+leadgen campaign show tajrish-dental
 ```
 
-Actor `compass~crawler-google-places` اجرا و dataset آن در `leads.db` ذخیره می‌شود.
+Actor `compass~crawler-google-places` اجرا و dataset آن در دیتابیس مرکزی ذخیره می‌شود. اگر `--campaign` را حذف کنید، جست‌وجو به Campaign پیش‌فرض `general` («جست‌وجوهای عمومی») وصل می‌شود. برای همهٔ فرمان‌ها همان دیتابیس را انتخاب کنید؛ `--db PATH` مسیر دیتابیس را صریح می‌کند.
 
 ## خروجی
 
 ```bash
 mkdir -p exports
-leadgen export exports/dentists-tehran.json --format json
-leadgen export exports/dentists-tehran.csv --format csv
+leadgen export exports/tajrish-dental.json --format json --campaign tajrish-dental
+leadgen export exports/all-leads.csv --format csv
 ```
 
-مسیر نسبی نسبت به پوشه اجرای command است.
+بدون `--campaign` همهٔ لیدهای یکتای دیتابیس صادر می‌شوند؛ با آن فقط اعضای همان Campaign. مسیر نسبی خروجی نسبت به پوشهٔ اجرای command است. دیتابیس خالی یا آزمایشی جداگانه را می‌توانید با `--db data/test.db` انتخاب کنید.
 
 ## تست
 

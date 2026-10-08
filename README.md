@@ -15,11 +15,15 @@ cp .env.example .env
 ## Usage
 
 ```bash
-leadgen search plumbers "Austin, TX" --source places
-leadgen search dentists "Austin, TX" --source web
-leadgen export leads.json --format json
+leadgen campaign create "Austin plumbers" --id austin-plumbers
+leadgen campaign list
+leadgen search plumbers "Austin, TX" --source places --campaign austin-plumbers
+leadgen campaign show austin-plumbers
+leadgen export leads.json --format json --campaign austin-plumbers
 leadgen export leads.csv --format csv
 pytest
 ```
+
+A search without `--campaign` is stored in the default `general` campaign. Export without `--campaign` includes all unique leads; adding a campaign ID limits the export to leads associated with that campaign. Campaigns share canonical lead records, so a business found in multiple campaigns is not duplicated globally.
 
 No secrets are included in this repository.

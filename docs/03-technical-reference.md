@@ -3,9 +3,16 @@
 ## CLI
 
 ```text
-leadgen search QUERY LOCATION [--source places|web] [--limit N] [--db PATH]
-leadgen export PATH [--format json|csv] [--db PATH]
+leadgen campaign create NAME [--description TEXT] [--id ID] [--db PATH]
+leadgen campaign list [--db PATH]
+leadgen campaign show CAMPAIGN_ID [--db PATH]
+leadgen search QUERY LOCATION [--source places|web] [--limit N] [--campaign ID] [--db PATH]
+leadgen export PATH [--format json|csv] [--campaign ID] [--db PATH]
 ```
+
+Campaignها روی یک دیتابیس مرکزی نگهداری می‌شوند. `create` یک شناسهٔ یکتا می‌سازد یا ID صریح می‌گیرد؛ نام و شناسهٔ تکراری خطا هستند. شناسهٔ Campaign ناشناخته نیز برای search و export رد می‌شود. جست‌وجوی بدون `--campaign` از `general` استفاده می‌کند.
+
+Export بدون `--campaign` رفتار قبلی خود را حفظ می‌کند و همهٔ لیدهای یکتا را می‌دهد. Export با شناسه فقط اعضای همان Campaign را می‌دهد. هر کسب‌وکار یک رکورد اصلی در جدول لیدها دارد و می‌تواند عضو چند Campaign باشد.
 
 `places` به Apify token نیاز دارد؛ منبع `web` در وضعیت فعلی feature-disabled است و درخواست HTTP ارسال نمی‌کند.
 
