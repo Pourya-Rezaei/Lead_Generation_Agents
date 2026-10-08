@@ -1,3 +1,5 @@
+import json
+
 import typer
 
 from .config import Settings
@@ -8,7 +10,9 @@ from .storage import LeadStore
 
 app = typer.Typer(help="Collect, score, and export local business leads.")
 campaign_app = typer.Typer(help="Create and inspect lead campaigns.", no_args_is_help=True)
+jobs_app = typer.Typer(help="Submit and control local jobs.", no_args_is_help=True)
 app.add_typer(campaign_app, name="campaign")
+app.add_typer(jobs_app, name="jobs")
 
 
 @app.command()
@@ -45,6 +49,45 @@ def search(
         f"Saved {len(result.leads)} leads ({result.status.value}) "
         f"to campaign '{selected.campaign_id}' ({selected.name})"
     )
+
+
+@jobs_app.command("submit")
+def jobs_submit(
+    query: str,
+    location: str,
+    source: str = typer.Option("places", "--source"),
+    limit: int = typer.Option(20, min=1),
+    campaign: str | None = typer.Option(None, "--campaign"),
+    idempotency_key: str = typer.Option(..., "--idempotency-key"),
+    db: str | None = typer.Option(None, "--db"),
+) -> None:
+    from .execution.service import JobService
+    settings = Settings()
+    request = {"query": query, "location": location, "source": source, "limit": limit, "campaign_id": campaign}
+    job = JobService(db or settings.database_path).submit(request, idempotency_key)
+    typer.echo(f"Submitted job '{job.job_id}' ({job.state})")
+
+
+@jobs_app.command("status")
+def jobs_status(job_id: str, db: str | None = typer.Option(None, "--db")) -> None:
+    from .execution.service import JobService
+    job = JobService(db or Settings().database_path).get(job_id)
+    if job is None:
+        raise typer.BadParameter(f"job not found: {job_id}")
+    typer.echo(f"ID: {job.job_id}")
+    typer.echo(f"State: {job.state}")
+    typer.echo(f"Progress: {json.dumps(job.progress, ensure_ascii=False)}")
+    if job.error_code:
+        typer.echo(f"Error: {job.error_code}")
+
+
+@jobs_app.command("cancel")
+def jobs_cancel(job_id: str, db: str | None = typer.Option(None, "--db")) -> None:
+    from .execution.service import JobService
+    job = JobService(db or Settings().database_path).cancel(job_id)
+    if job is None:
+        raise typer.BadParameter(f"job not found: {job_id}")
+    typer.echo(f"Job '{job.job_id}' is {job.state}")
 
 
 @campaign_app.command("create")

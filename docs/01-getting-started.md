@@ -39,6 +39,18 @@ leadgen campaign show tajrish-dental
 
 Actor `compass~crawler-google-places` اجرا و dataset آن در دیتابیس مرکزی ذخیره می‌شود. اگر `--campaign` را حذف کنید، جست‌وجو به Campaign پیش‌فرض `general` («جست‌وجوهای عمومی») وصل می‌شود. برای همهٔ فرمان‌ها همان دیتابیس را انتخاب کنید؛ `--db PATH` مسیر دیتابیس را صریح می‌کند.
 
+## اجرای Job از CLI
+
+برای ارسال یک جست‌وجوی صف‌شده، کلید idempotency را صریح تعیین کنید:
+
+```bash
+leadgen jobs submit دندانپزشکی تهران --idempotency-key search-001
+leadgen jobs status JOB_ID
+leadgen jobs cancel JOB_ID
+```
+
+این دستورات Job را ثبت و کنترل می‌کنند؛ برای اجرای آن‌ها هنوز باید worker جداگانه اجرا شود.
+
 ## پنل وب محلی
 
 برای استفاده بدون اجرای مداوم CLI، از ریشهٔ پروژه اجرا کنید:
