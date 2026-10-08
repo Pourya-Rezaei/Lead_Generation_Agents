@@ -4,16 +4,16 @@ from pydantic import ValidationError
 import sqlite3
 from datetime import UTC, datetime
 
-from leadgen.domain import Campaign, Lead
-from leadgen.errors import (
+from src.domain import Campaign, Lead
+from src.errors import (
     CampaignNotFoundError,
     DuplicateCampaignIdError,
     DuplicateCampaignNameError,
 )
-from leadgen.migrations import migrate
-from leadgen.repositories import CampaignRepository, LeadRepository, RunRepository
-from leadgen.results import RunStatus, SearchResult
-from leadgen.storage import LeadStore
+from src.migrations import migrate
+from src.repositories import CampaignRepository, LeadRepository, RunRepository
+from src.results import RunStatus, SearchResult
+from src.storage import LeadStore
 
 
 def test_campaign_validates_and_normalizes_name():
@@ -180,7 +180,7 @@ def test_persist_search_result_rolls_back_all_writes_when_raw_insert_fails(tmp_p
         CampaignRepository(db).create("Chosen", campaign_id="chosen")
     def fail_raw(*args, **kwargs):
         raise RuntimeError("injected raw insert failure")
-    monkeypatch.setattr("leadgen.storage.RawRecordRepository.save_allowlisted", fail_raw)
+    monkeypatch.setattr("src.storage.RawRecordRepository.save_allowlisted", fail_raw)
     with pytest.raises(RuntimeError, match="injected raw"):
         store.persist_search_result("chosen", _search_result(), "coffee", "North")
     with store._connect() as db:

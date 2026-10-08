@@ -1,14 +1,14 @@
 import httpx
 import pytest
 
-from leadgen.apify import ApifyClient
-from leadgen.errors import (
+from src.apify import ApifyClient
+from src.errors import (
     ApifyCredentialError,
     ApifyMalformedResponseError,
     ApifyNotFoundError,
     ApifyTransientError,
 )
-from leadgen.retry import RetryPolicy
+from src.retry import RetryPolicy
 
 
 class ScriptedClient:

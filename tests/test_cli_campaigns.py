@@ -3,10 +3,10 @@ from datetime import UTC, datetime
 
 from typer.testing import CliRunner
 
-from leadgen.cli import app
-from leadgen.domain import Lead
-from leadgen.results import RunStatus, SearchResult
-from leadgen.storage import LeadStore
+from src.cli import app
+from src.domain import Lead
+from src.results import RunStatus, SearchResult
+from src.storage import LeadStore
 
 
 runner = CliRunner()
@@ -69,7 +69,7 @@ class FixedRegistry:
 
 
 def test_search_cli_uses_default_or_selected_campaign(tmp_path, monkeypatch):
-    import leadgen.service as service_module
+    import src.service as service_module
 
     database = str(tmp_path / "campaign.db")
     store = LeadStore(database)

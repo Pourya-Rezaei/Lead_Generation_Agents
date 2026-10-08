@@ -5,17 +5,17 @@ from datetime import UTC, datetime
 import pytest
 from typer.testing import CliRunner
 
-from leadgen.cli import app
-from leadgen.config import Settings
-from leadgen.errors import (
+from src.cli import app
+from src.config import Settings
+from src.errors import (
     ApifyCredentialError,
     ApifyMalformedResponseError,
     ApifyTransientError,
     SearchAttemptPersistenceError,
 )
-from leadgen.results import RunStatus, SearchResult
-from leadgen.service import SearchLeadsService
-from leadgen.storage import LeadStore
+from src.results import RunStatus, SearchResult
+from src.service import SearchLeadsService
+from src.storage import LeadStore
 
 
 class FailingConnector:
@@ -156,7 +156,7 @@ def test_invalid_campaign_and_source_do_not_create_failed_runs(tmp_path):
 
 
 def test_cli_reports_returned_failed_result_as_failure(tmp_path, monkeypatch):
-    import leadgen.service as service_module
+    import src.service as service_module
 
     class ReturnedFailureConnector(FailingConnector):
         def search(self, query, location, limit):
@@ -192,7 +192,7 @@ def test_cli_reports_returned_failed_result_as_failure(tmp_path, monkeypatch):
 
 
 def test_cli_shows_safe_apify_failure_and_exits_nonzero(tmp_path, monkeypatch):
-    import leadgen.service as service_module
+    import src.service as service_module
 
     class CliFailingRegistry(FailingRegistry):
         def __init__(self):
@@ -218,7 +218,7 @@ def test_cli_shows_safe_apify_failure_and_exits_nonzero(tmp_path, monkeypatch):
 
 
 def test_cli_missing_token_records_attempt_and_exits_nonzero(tmp_path, monkeypatch):
-    import leadgen.cli as cli_module
+    import src.cli as cli_module
 
     database = str(tmp_path / "missing-token.db")
     monkeypatch.setattr(

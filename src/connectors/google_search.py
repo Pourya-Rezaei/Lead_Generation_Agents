@@ -6,7 +6,7 @@ class GoogleSearchConnector(Connector):
     endpoint = "https://www.google.com/search"
     def __init__(self, timeout: float = 20): self.timeout = timeout
     def search(self, query: str, location: str, limit: int = 20) -> list[Lead]:
-        response = httpx.get(self.endpoint, params={"q": f"{query} {location}"}, headers={"User-Agent": "leadgen/0.1"}, timeout=self.timeout, trust_env=False)
+        response = httpx.get(self.endpoint, params={"q": f"{query} {location}"}, headers={"User-Agent": "src/0.1"}, timeout=self.timeout, trust_env=False)
         response.raise_for_status()
         import re, html
         leads = []

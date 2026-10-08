@@ -4,22 +4,24 @@
 
 ## وضعیت فعلی
 
-MVP فعلی:
+نسخهٔ فعلی یک MVP عملیاتی برای منبع Google Places است:
 
 - ورودی CLI برای query، location، source و limit
 - اجرای Actor `compass~crawler-google-places` از طریق Apify
-- دریافت dataset و تبدیل آن به مدل استاندارد لید
-- ذخیره در SQLite
-- نرمال‌سازی، امتیازدهی و upsert
-- خروجی JSON و CSV
-- منبع `web` برای جست‌وجوی سبک HTTP
-- تست‌های unit و integration mock شده
-- ثبت metadata اجرای Apify در جدول `runs`
-- ذخیره رکوردهای خام dataset در جدول `raw_records`
-- ساخت خودکار پوشه مقصد هنگام export
-- تست end-to-end موفق با ۵ لید واقعی و خروجی JSON/CSV
+- عدم نیاز به Google Maps API key؛ فقط `APIFY_API_TOKEN` لازم است
+- تبدیل dataset به مدل استاندارد Lead و ذخیره در SQLite
+- normalization، scoring و upsert پایهٔ لیدها
+- مدیریت Campaign با Campaign پیش‌فرض `general`
+- اتصال هر Run به Campaign و عضویت چندبه‌چند Leadها در Campaignها
+- ذخیرهٔ metadata اجرای Apify و raw recordهای allowlist شده
+- ثبت Runهای ناموفق برای خطاهای credential، timeout، شبکه و پاسخ نامعتبر
+- جلوگیری از ذخیرهٔ Lead و raw record برای Run شکست‌خورده
+- خروجی JSON و CSV سراسری یا محدود به Campaign
+- ساخت خودکار پوشهٔ مقصد export
+- تست‌های unit و integration کاملاً mock شده
+- CLI فعال: `search`، `campaign create/list/show` و `export`
 
-Google Maps API رسمی در پروژه استفاده نمی‌شود؛ فقط `APIFY_API_TOKEN` لازم است.
+منبع `web` و Connectorهای Instagram، TikTok و YouTube در حال حاضر فعال نیستند و نباید به‌عنوان قابلیت آماده معرفی شوند.
 
 ## مسیر مطالعه پیشنهادی
 
@@ -35,14 +37,15 @@ Google Maps API رسمی در پروژه استفاده نمی‌شود؛ فقط
 10. [راهنمای تحویل به ایجنت هوش مصنوعی](10-ai-agent-handoff.md)
 11. [تاریخچه تغییرات و وضعیت فعلی](11-change-history.md)
 12. [راهنمای کار Agent با CBM](12-cbm-agent-guide.md)
+13. [راهنمای درک پروژه برای Agent](13-agent-project-understanding.md)
 
 ## ساختار کد
 
-- `leadgen/cli.py`: دستورات CLI
-- `leadgen/config.py`: تنظیمات Environment
-- `leadgen/domain.py`: مدل لید، normalization و scoring
-- `leadgen/storage.py`: SQLite و export
-- `leadgen/connectors/`: اتصال به منابع داده
+- `src/cli.py`: دستورات CLI
+- `src/config.py`: تنظیمات Environment
+- `src/domain.py`: مدل لید، normalization و scoring
+- `src/storage.py`: SQLite و export
+- `src/connectors/`: اتصال به منابع داده
 - `tests/`: تست‌های پروژه
 - `.env`: تنظیمات محلی و secretها؛ هرگز commit نشود
 

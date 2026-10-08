@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from leadgen.domain import (
+from src.domain import (
     Lead,
     completeness_score,
     identity_candidates,

@@ -5,11 +5,11 @@ from datetime import UTC, datetime
 import pytest
 from typer.testing import CliRunner
 
-from leadgen.cli import app
-from leadgen.domain import Lead
-from leadgen.errors import CampaignNotFoundError
-from leadgen.results import RunStatus, SearchResult
-from leadgen.storage import LeadStore
+from src.cli import app
+from src.domain import Lead
+from src.errors import CampaignNotFoundError
+from src.results import RunStatus, SearchResult
+from src.storage import LeadStore
 
 
 def _result(run_id: str, name: str) -> SearchResult:

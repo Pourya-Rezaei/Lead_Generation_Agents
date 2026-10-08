@@ -15,14 +15,14 @@
 
 ### Apify
 
-- ایجاد Client واحد در `leadgen/apify.py`.
+- ایجاد Client واحد در `src/apify.py`.
 - ارسال credential فقط با Header احراز هویت؛ token در URL یا پیام خطا قرار نمی‌گیرد.
 - طبقه‌بندی خطاهای credential، endpoint، timeout، خطاهای موقت و پاسخ malformed.
 - retry محدود و قابل‌تزریق با backoff.
 
 ### قرارداد Connector
 
-- ایجاد `RunStatus` و `SearchResult` در `leadgen/results.py`.
+- ایجاد `RunStatus` و `SearchResult` در `src/results.py`.
 - Connectorها علاوه بر لید، وضعیت اجرا، شناسه run/dataset، هشدار، زمان اجرا و raw record محدودشده را برمی‌گردانند.
 - Places statusهای واقعی را بررسی می‌کند و اجرای ناقص را موفق گزارش نمی‌کند.
 - داده خام با allowlist ذخیره می‌شود.
@@ -37,7 +37,7 @@
 
 ### Storage و migration
 
-- migration نسخه‌دار، idempotent و transaction-based در `leadgen/migrations.py`.
+- migration نسخه‌دار، idempotent و transaction-based در `src/migrations.py`.
 - repositoryهای جدا برای leads، runs و raw records.
 - حفظ facade قدیمی `LeadStore` برای سازگاری.
 - ساخت خودکار parent directory دیتابیس.
@@ -88,8 +88,27 @@ CLI --help         -> successful
 - تعیین سیاست retention مطابق نیاز واقعی کسب‌وکار و قوانین محل اجرا.
 - ایجاد migration جدید به‌صورت ترتیبی و بدون شکستن JSON/CSV پیش‌فرض.
 
+## وضعیت فعلی پس از Campaign و ثبت خطا
+
+- Campaignها با جدول‌های `campaigns` و `campaign_leads` اضافه شدند.
+- Runها به Campaign متصل هستند و Leadها می‌توانند عضو چند Campaign باشند.
+- export می‌تواند سراسری یا با `--campaign ID` محدود باشد.
+- خطاهای اجرای جست‌وجو به‌عنوان Run با status `failed` ثبت می‌شوند؛ خطای اصلی همچنان به CLI برمی‌گردد.
+- برای failureهایی که پیش از دریافت شناسهٔ Apify رخ می‌دهند، `local-<uuid>` به‌عنوان شناسهٔ داخلی استفاده می‌شود.
+- شناسهٔ Provider در صورت وجود فقط به‌صورت metadata امن نگه‌داری می‌شود.
+- تست‌های regression مربوط به failure handling اضافه شده و کل suite به `79 passed` رسیده است.
+- پوشهٔ worktree موقت حذف شده و checkout اصلی مسیر رسمی توسعه است.
+
+## کارهای باقی‌مانده
+
+- تکمیل deduplication چندمنبعی و normalization قابل مشاهده
+- provenance/evidence و confidence دقیق‌تر برای داده‌های تکمیلی
+- افزودن فیلترهای quality/score به export
+- سپس افزودن Google Search و Connectorهای اجتماعی با privacy review
+- در مراحل بعد queue، cache، dashboard، CRM export و budget guard
+
 ## وضعیت Git
 
 - branch اصلی: `main`
-- commit اولیه: `88ee07b9b52babb69025d41ae39fa29a8a7a3386`
-- فایل‌های حساس در commit اولیه وارد نشده‌اند.
+- آخرین commitهای مرتبط: `e5ffd4b` برای Campaignها، `57f6612` برای ثبت failureها، `669c84d` برای ایزوله‌کردن regression test از `.env`
+- فایل‌های حساس مانند `.env` در commit وارد نشده‌اند.

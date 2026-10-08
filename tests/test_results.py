@@ -3,8 +3,8 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from leadgen.domain import Lead
-from leadgen.results import RunStatus, SearchResult, map_apify_status
+from src.domain import Lead
+from src.results import RunStatus, SearchResult, map_apify_status
 
 
 def test_maps_apify_statuses() -> None:

@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from leadgen.domain import Lead
-from leadgen.migrations import CURRENT_SCHEMA_VERSION, migrate
-from leadgen.repositories import LeadRepository, RawRecordRepository, RunRepository
-from leadgen.storage import LeadStore
+from src.domain import Lead
+from src.migrations import CURRENT_SCHEMA_VERSION, migrate
+from src.repositories import LeadRepository, RawRecordRepository, RunRepository
+from src.storage import LeadStore
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "legacy_leads.sql"
@@ -78,7 +78,7 @@ def test_campaign_constraints_reject_duplicate_name_and_default(tmp_path):
 
 
 def test_migration_rolls_back_on_failure(tmp_path, monkeypatch):
-    import leadgen.migrations as migrations
+    import src.migrations as migrations
 
     path = tmp_path / "broken.db"
     legacy_database(path)

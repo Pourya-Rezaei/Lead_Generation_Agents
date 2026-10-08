@@ -1,7 +1,7 @@
 import pytest
 
-from leadgen.connectors.apify_places import ApifyPlacesConnector
-from leadgen.results import RunStatus, SearchResult
+from src.connectors.apify_places import ApifyPlacesConnector
+from src.results import RunStatus, SearchResult
 
 
 class FakeApifyClient:

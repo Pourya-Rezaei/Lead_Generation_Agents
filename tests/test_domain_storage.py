@@ -1,5 +1,5 @@
-from leadgen.domain import Lead, normalize, score
-from leadgen.storage import LeadStore
+from src.domain import Lead, normalize, score
+from src.storage import LeadStore
 
 def test_normalize_score_and_roundtrip(tmp_path):
     lead = normalize(Lead(name="  Acme   Co ", address=" Main  St ", phone="123", website="https://acme.test/", rating=5, reviews=100))

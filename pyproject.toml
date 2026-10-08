@@ -9,7 +9,7 @@ dependencies = ["typer>=0.12", "pydantic>=2", "pydantic-settings>=2", "httpx>=0.
 test = ["pytest>=8", "respx>=0.21"]
 
 [project.scripts]
-leadgen = "leadgen.cli:app"
+leadgen = "src.cli:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

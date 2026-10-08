@@ -181,7 +181,7 @@ CBM باید این مسیرها را عمداً کنار بگذارد:
 ```bash
 "$CBM" cli get_architecture \
   --project "$PROJECT" \
-  --path leadgen \
+  --path src \
   --aspects overview
 ```
 
@@ -242,7 +242,7 @@ Query باید read-only باشد. Agent نباید graph یا index را با q
 ```bash
 "$CBM" cli check_index_coverage \
   --project "$PROJECT" \
-  --paths '["leadgen","tests","doc"]' \
+  --paths '["src","tests","docs"]' \
   --diagnostics full
 ```
 
@@ -251,7 +251,7 @@ Query باید read-only باشد. Agent نباید graph یا index را با q
 ```bash
 "$CBM" cli check_index_coverage \
   --project "$PROJECT" \
-  --scopes '["leadgen","tests"]' \
+  --scopes '["src","tests"]' \
   --diagnostics full
 ```
 
@@ -292,10 +292,10 @@ Query باید read-only باشد. Agent نباید graph یا index را با q
 حداقل این مسیرها را بر اساس خروجی واقعی بررسی کن:
 
 ```text
-leadgen/results.py
-leadgen/connectors/base.py
-leadgen/connectors/apify_places.py
-leadgen/service.py
+src/results.py
+src/connectors/base.py
+src/connectors/apify_places.py
+src/service.py
 tests/test_results.py
 tests/test_connectors.py
 ```
@@ -360,6 +360,74 @@ git diff --check
 git status --short
 ```
 
+### چرا باید index را دوباره بسازیم؟
+
+CBM به‌صورت خودکار همه تغییرات جدید source code را به graph قبلی اضافه نمی‌کند. بعد از اضافه‌شدن فایل، class، function، import یا رابطه جدید، index قبلی ممکن است هنوز معماری قبل از تغییر را نشان دهد. بنابراین Agent باید بعد از هر تغییر ساختاری یا منطقی مهم، index را refresh کند.
+
+`detect_changes` برای پیدا کردن اثر تغییر و مقایسه استفاده می‌شود؛ اما جایگزین refresh کردن index نیست.
+
+### روش استاندارد ثبت کد جدید در CBM
+
+پس از پایان توسعه و موفق‌شدن تست‌ها، این توالی را اجرا کن:
+
+```bash
+# 1) اطمینان از ریشه پروژه و نسخه ابزار
+pwd
+"$CBM" --version
+
+# 2) بازسازی graph با source، tests و docs فعلی
+"$CBM" cli index_repository \
+  --repo-path . \
+  --mode full \
+  --name "$PROJECT" \
+  --persistence true
+
+# 3) بررسی اینکه index جدید آماده و کامل است
+"$CBM" cli index_status --project "$PROJECT"
+"$CBM" cli get_architecture --project "$PROJECT" --aspects all
+
+# 4) بررسی پوشش مسیرهای تغییرکرده
+"$CBM" cli check_index_coverage \
+  --project "$PROJECT" \
+  --paths '["src","tests","docs"]' \
+  --diagnostics full
+```
+
+بعد از refresh، symbolهای جدید را جست‌وجو و trace کن:
+
+```bash
+"$CBM" cli search_code \
+  --project "$PROJECT" \
+  --pattern "NewClassOrFunction" \
+  --mode full
+
+"$CBM" cli trace_path \
+  --project "$PROJECT" \
+  --function-name "NewClassOrFunction" \
+  --direction both \
+  --depth 3 \
+  --include-tests true
+```
+
+اگر فقط مستندات یا فایل‌های غیرمعماری تغییر کرده‌اند، refresh کامل معمولاً ضروری نیست؛ اما برای تغییرات زیر refresh کامل انجام بده:
+
+- اضافه یا حذف‌کردن فایل Python
+- اضافه‌کردن class، function، method یا module
+- تغییر importها یا مرز packageها
+- تغییر مسیرهای call، inheritance یا registry
+- تغییر schema، migration، repository یا connector
+- refactorهایی که architecture یا dependency graph را تغییر می‌دهند
+
+پس از refresh باید architecture جدید را با architecture قبلی ذهنی یا خروجی قبلی مقایسه کنی و موارد زیر را بررسی کنی:
+
+- آیا فایل و symbol جدید در graph دیده می‌شود؟
+- آیا `IMPORTS` و `CALLS` مورد انتظار ایجاد شده‌اند؟
+- آیا تست‌های جدید با edge نوع `TESTS` ثبت شده‌اند؟
+- آیا layer، boundary یا hotspot غیرمنتظره‌ای ایجاد شده است؟
+- آیا `parse_partial` یا `parse_unusable` افزایش یافته است؟
+
+اگر symbol جدید در CBM دیده نشد، نتیجه نگیر که کد بی‌اثر است. ابتدا نام qualified، مسیر فایل، وضعیت index و parser diagnostics را بررسی کن؛ سپس source code را مستقیم بخوان.
+
 ## ۱۴. ضدتوهم و تفسیر شواهد
 
 Agent باید یافته‌ها را در چهار دسته گزارش کند:
@@ -389,7 +457,7 @@ Agent باید یافته‌ها را در چهار دسته گزارش کند:
 - اگر index ناقص یا stale است، نتیجه را قطعی گزارش نکن.
 - اگر CBM و کد تناقض داشتند، تناقض را گزارش و source/test را مرجع نهایی قرار بده.
 
-## ۱۵. سناریوهای کاربردی پروژه
+## ۱۶. سناریوهای کاربردی پروژه
 
 ### بررسی مسیر جست‌وجو
 
@@ -401,8 +469,8 @@ Agent باید یافته‌ها را در چهار دسته گزارش کند:
 سپس این مسیر را با کد تأیید کن:
 
 ```text
-leadgen/cli.py → leadgen/service.py → leadgen/registry.py
-→ leadgen/connectors/apify_places.py → leadgen/storage.py
+src/cli.py → src/service.py → src/registry.py
+→ src/connectors/apify_places.py → src/storage.py
 ```
 
 ### بررسی deduplication
@@ -426,7 +494,7 @@ leadgen/cli.py → leadgen/service.py → leadgen/registry.py
 "$CBM" cli search_code --project "$PROJECT" --pattern "formula" --mode full
 ```
 
-## ۱۶. خطاهای رایج
+## ۱۷. خطاهای رایج
 
 ### پروژه index نشده است
 
@@ -465,7 +533,7 @@ test -x "$CBM"
 
 اگر `parse_partial_count` یا `parse_unusable_count` بیشتر از صفر بود، محدوده ناقص است و باید این محدودیت در گزارش نهایی ذکر شود.
 
-## ۱۷. چک‌لیست سریع Agent
+## ۱۸. چک‌لیست سریع Agent
 
 ```text
 [ ] از ریشه پروژه کار می‌کنم.

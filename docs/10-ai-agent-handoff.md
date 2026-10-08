@@ -10,11 +10,11 @@
 
 ## نقاط ورود
 
-- CLI: `leadgen/cli.py`
-- تنظیمات: `leadgen/config.py`
-- domain: `leadgen/domain.py`
-- storage: `leadgen/storage.py`
-- Apify Places: `leadgen/connectors/apify_places.py`
+- CLI: `src/cli.py`
+- تنظیمات: `src/config.py`
+- domain: `src/domain.py`
+- storage: `src/storage.py`
+- Apify Places: `src/connectors/apify_places.py`
 - tests: `tests/`
 
 ## قواعد توسعه
@@ -36,13 +36,17 @@ grep -RInE 'APIFY_API_TOKEN|GOOGLE_API_KEY' --exclude-dir=.venv --exclude-dir=.g
 
 در گزارش نهایی این موارد را بنویس: فایل‌های تغییرکرده، رفتار جدید، تست اجراشده، محدودیت‌های باقی‌مانده و migration موردنیاز.
 
-## وضعیت فعلی پس از فاز ۲
+## وضعیت فعلی پروژه
 
-- Apify Places در اجرای واقعی با limit=5 تست شده است.
-- تست خودکار فعلی: `4 passed`.
-- metadata run و raw records در SQLite ثبت می‌شوند.
-- export تو در تو با ساخت خودکار پوشه کار می‌کند.
-- برای آزمایش واقعی از `test-phase2.db` استفاده شده و نباید با `leads.db` اصلی اشتباه شود.
+- منبع رسمی فعال فعلی فقط `places` و Actor مربوط به `compass~crawler-google-places` است.
+- Apify Places در اجرای واقعی با limit پایین تست شده است؛ تست‌های پروژه به‌صورت mock و بدون token واقعی اجرا می‌شوند.
+- آخرین اعتبارسنجی کامل: `79 passed` با `pytest -q`.
+- Campaign پیش‌فرض `general` است و جست‌وجو می‌تواند با `--campaign ID` به Campaign مشخص متصل شود.
+- `campaign create/list/show` و export محدودشده با `--campaign` فعال هستند.
+- خطاهای credential، timeout/network، پاسخ malformed و failure result به‌صورت Run ناموفق ثبت می‌شوند؛ Lead و raw برای failure ذخیره نمی‌شوند.
+- خروجی export با syntax فعلی به شکل `export PATH --format csv|json [--campaign ID] [--db PATH]` است؛ گزینهٔ `--output` وجود ندارد.
+- `web` و Connectorهای Instagram، TikTok و YouTube هنوز فعال نیستند.
+- برای اجرای روزمره از ریشهٔ checkout اصلی استفاده شود؛ worktree جداگانه‌ای برای این پروژه لازم نیست.
 
 ## وضعیت Campaignها
 
