@@ -128,11 +128,29 @@ class ApifyClient:
         return data
 
     def dataset_items(self, dataset_id: str) -> list[dict[str, Any]]:
-        """Retrieve and validate clean items from an Apify dataset."""
+        """Retrieve and validate all clean items using the legacy request shape."""
         if not dataset_id:
             raise ValueError("dataset_id is required")
         url = f"{self.base_url}/datasets/{quote(dataset_id, safe='')}/items"
         payload = self._request_json("get", url, params={"clean": "true"})
+        if isinstance(payload, dict):
+            payload = payload.get("items")
+        if not isinstance(payload, list) or not all(isinstance(item, dict) for item in payload):
+            raise ApifyMalformedResponseError("Apify dataset response must be a list of objects")
+        return payload
+
+    def dataset_items_page(
+        self, dataset_id: str, *, offset: int = 0, limit: int = 1000
+    ) -> list[dict[str, Any]]:
+        """Retrieve one deterministic page of clean dataset items."""
+        if not dataset_id:
+            raise ValueError("dataset_id is required")
+        if offset < 0 or limit < 1:
+            raise ValueError("offset must be non-negative and limit must be positive")
+        url = f"{self.base_url}/datasets/{quote(dataset_id, safe='')}/items"
+        payload = self._request_json(
+            "get", url, params={"clean": "true", "offset": offset, "limit": limit}
+        )
         if isinstance(payload, dict):
             payload = payload.get("items")
         if not isinstance(payload, list) or not all(isinstance(item, dict) for item in payload):

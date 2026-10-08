@@ -98,6 +98,15 @@ def test_lifecycle_can_start_poll_and_abort_without_exposing_token():
     assert all("top-secret-token" not in request[1] for request in transport.requests)
 
 
+def test_dataset_items_page_sends_offset_and_limit():
+    transport = ScriptedClient([response(200, [{"name": "cafe"}])])
+
+    items = make_client(transport).dataset_items_page("ds-1", offset=10, limit=5)
+
+    assert items == [{"name": "cafe"}]
+    assert transport.requests[0][2]["params"] == {"clean": "true", "offset": 10, "limit": 5}
+
+
 def test_dataset_items_retrieves_clean_items():
     transport = ScriptedClient([response(200, [{"title": "Cafe"}])])
 
