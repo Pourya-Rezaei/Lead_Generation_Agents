@@ -103,11 +103,15 @@ def export(
     format: str = typer.Option("json", "--format"),
     campaign: str | None = typer.Option(None, "--campaign", help="Campaign ID"),
     db: str | None = None,
+    min_completeness: float | None = typer.Option(None, "--min-completeness", min=0, max=100),
+    has_phone: bool = typer.Option(False, "--has-phone"),
+    has_website: bool = typer.Option(False, "--has-website"),
 ) -> None:
     settings = Settings()
     try:
         LeadStore(db or settings.database_path).export(
-            path, format, campaign_id=campaign
+            path, format, campaign_id=campaign, min_completeness=min_completeness,
+            has_phone=has_phone, has_website=has_website,
         )
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc

@@ -236,8 +236,14 @@ class LeadStore:
         fmt: str,
         extended: bool = False,
         campaign_id: str | None = None,
+        min_completeness: float | None = None,
+        has_phone: bool = False,
+        has_website: bool = False,
     ) -> None:
         leads = self.all() if campaign_id is None else self.leads_for_campaign(campaign_id)
+        if min_completeness is not None or has_phone or has_website:
+            from .quality.metrics import metrics
+            leads = [lead for lead in leads if (min_completeness is None or metrics(lead).completeness >= min_completeness) and (not has_phone or bool(lead.phone)) and (not has_website or bool(lead.website))]
         if fmt == "json":
             export_json(leads, path, extended=extended)
         elif fmt == "csv":

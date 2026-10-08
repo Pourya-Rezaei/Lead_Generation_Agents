@@ -37,6 +37,8 @@
 
 matching محافظه‌کارانه است: source ID یکسان merge، domain+address یکسان merge، شعبه‌های متفاوت separate و شواهد ضعیف review می‌شوند. نبود evidence به‌معنای false بودن داده نیست و confidence ناشناخته باید ناشناخته بماند. داده‌ای که صرفاً از تشابه نام به دست آمده، مالکیت قطعی محسوب نمی‌شود.
 
+`src/quality/metrics.py` completeness را جدا از score قدیمی محاسبه می‌کند. export CLI فیلترهای اختیاری `--min-completeness`، `--has-phone` و `--has-website` دارد؛ بدون این flags قرارداد JSON/CSV قبلی تغییر نمی‌کند.
+
 ## حریم خصوصی
 
 تنها داده عمومی و حرفه‌ای کسب‌وکار مجاز است. اطلاعات خصوصی افراد، حدس مالکیت و داده حساس نباید ذخیره یا enrich شود.
