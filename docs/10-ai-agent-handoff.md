@@ -46,6 +46,7 @@ grep -RInE 'APIFY_API_TOKEN|GOOGLE_API_KEY' --exclude-dir=.venv --exclude-dir=.g
 - خطاهای credential، timeout/network، پاسخ malformed و failure result به‌صورت Run ناموفق ثبت می‌شوند؛ Lead و raw برای failure ذخیره نمی‌شوند.
 - خروجی export با syntax فعلی به شکل `export PATH --format csv|json [--campaign ID] [--db PATH]` است؛ گزینهٔ `--output` وجود ندارد.
 - `web` و Connectorهای Instagram، TikTok و YouTube هنوز فعال نیستند.
+- پنل وب محلی MVP با FastAPI/Jinja فعال است؛ راه‌اندازی آن با `uvicorn src.web.app:app --host 127.0.0.1 --port 8000` انجام می‌شود و فقط Places، Campaign، مشاهده Lead و export را پوشش می‌دهد.
 - برای اجرای روزمره از ریشهٔ checkout اصلی استفاده شود؛ worktree جداگانه‌ای برای این پروژه لازم نیست.
 
 ## وضعیت Campaignها

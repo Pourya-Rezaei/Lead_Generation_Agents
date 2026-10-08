@@ -24,6 +24,16 @@ leadgen export leads.csv --format csv
 pytest
 ```
 
+### Local web panel
+
+Start the browser-based panel from the project root:
+
+```bash
+uvicorn src.web.app:app --host 127.0.0.1 --port 8000
+```
+
+Then open <http://127.0.0.1:8000>. The MVP supports Campaign management, synchronous Places searches, Campaign lead viewing, and JSON/CSV downloads. It binds to localhost only and does not expose the panel to the network.
+
 A search without `--campaign` is stored in the default `general` campaign. Export without `--campaign` includes all unique leads; adding a campaign ID limits the export to leads associated with that campaign. Campaigns share canonical lead records, so a business found in multiple campaigns is not duplicated globally.
 
 No secrets are included in this repository.

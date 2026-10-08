@@ -20,6 +20,28 @@ Export بدون `--campaign` رفتار قبلی خود را حفظ می‌کن�
 
 اگر خود ثبت failure به علت خرابی دیتابیس شکست بخورد، سرویس خطای ثبت را جداگانه و همراه زنجیرهٔ exception اصلی گزارش می‌دهد. ورودی نامعتبر، source غیرفعال/ناشناخته یا Campaign ناموجود Run نمی‌سازند.
 
+## Web UI
+
+راه‌اندازی محلی:
+
+```bash
+uvicorn src.web.app:app --host 127.0.0.1 --port 8000
+```
+
+Routeهای نسخهٔ اول:
+
+```text
+GET  /
+GET  /campaigns
+POST /campaigns
+GET  /campaigns/{campaign_id}
+GET  /campaigns/{campaign_id}/export?format=json|csv
+GET  /search
+POST /search
+```
+
+پنل وب از همان Service و Storage استفاده می‌کند و فقط source=`places` را فعال می‌کند. این نسخه synchronous، localhost-only و فاقد authentication است.
+
 ## Environment
 
 | متغیر | الزامی | پیش‌فرض | توضیح |
