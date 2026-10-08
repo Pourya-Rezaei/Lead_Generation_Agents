@@ -81,6 +81,16 @@ Web smoke routes   -> /, /campaigns, /search و /static/styles.css موفق
 
 هیچ اجرای زنده‌ای علیه Apify در این مرحله انجام نشد.
 
+## فاز A: هویت پایدار و provenance
+
+- schema به نسخهٔ ۳ ارتقا یافت و برای Leadها `lead_id` پایدار اضافه شد.
+- جدول‌های `observations` و `field_evidence` برای ثبت منبع، زمان، source record و evidence ایجاد شدند.
+- upsert با source/source_id ثابت، هویت Lead را هنگام تغییر فیلدهای mutable حفظ می‌کند.
+- normalization canonical و matching محافظه‌کارانه برای شعبه‌ها و شواهد ضعیف اضافه شد.
+- migration روی دیتابیس تازه و legacy idempotent و transaction-safe است.
+- baseline تست از 89 به `93 passed` رسید.
+- `campaign_leads` هنوز برای سازگاری از dedup key استفاده می‌کند؛ انتقال کامل به lead_id در migration جداگانه باقی مانده است.
+
 ## رابط وب فارسی و RTL
 
 - FastAPI، Jinja2 و `python-multipart` به وابستگی‌های runtime اضافه شدند.

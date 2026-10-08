@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import sqlite3
+import uuid
 from collections.abc import Callable
 
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 3
 
 
 def _table_columns(connection: sqlite3.Connection, table: str) -> set[str]:
@@ -106,7 +107,38 @@ def _migration_2(connection: sqlite3.Connection) -> None:
     )
 
 
-MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (_migration_1, _migration_2)
+def _migration_3(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS leads (dedup_key TEXT PRIMARY KEY, payload TEXT NOT NULL)"
+    )
+    columns = _table_columns(connection, "leads")
+    if "lead_id" not in columns:
+        connection.execute("ALTER TABLE leads ADD COLUMN lead_id TEXT")
+    rows = connection.execute("SELECT rowid, lead_id FROM leads").fetchall()
+    for rowid, lead_id in rows:
+        if not lead_id:
+            connection.execute("UPDATE leads SET lead_id = ? WHERE rowid = ?", (str(uuid.uuid4()), rowid))
+    connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_leads_lead_id ON leads(lead_id)")
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS observations ("
+        "observation_id TEXT PRIMARY KEY, lead_id TEXT NOT NULL, source TEXT NOT NULL, "
+        "source_record_id TEXT, source_url TEXT, run_id TEXT, collected_at TEXT NOT NULL, "
+        "fields TEXT NOT NULL, mapper_version TEXT NOT NULL, "
+        "FOREIGN KEY (lead_id) REFERENCES leads(lead_id) ON DELETE CASCADE)"
+    )
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_observations_lead ON observations(lead_id)")
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_observations_source_record ON observations(source, source_record_id)")
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS field_evidence ("
+        "evidence_id TEXT PRIMARY KEY, lead_id TEXT NOT NULL, field TEXT NOT NULL, value TEXT, "
+        "source_url TEXT, observation_id TEXT, collected_at TEXT NOT NULL, evidence_kind TEXT NOT NULL, "
+        "confidence REAL, policy_version TEXT NOT NULL, "
+        "FOREIGN KEY (lead_id) REFERENCES leads(lead_id) ON DELETE CASCADE, "
+        "FOREIGN KEY (observation_id) REFERENCES observations(observation_id) ON DELETE SET NULL)"
+    )
+
+
+MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (_migration_1, _migration_2, _migration_3)
 
 
 def migrate(connection: sqlite3.Connection) -> int:

@@ -140,15 +140,31 @@ class LeadRepository:
         inserted = updated = 0
         for lead in leads:
             key = lead.dedup_key()
-            exists = self.connection.execute(
-                "SELECT 1 FROM leads WHERE dedup_key = ?", (key,)
+            existing = self.connection.execute(
+                "SELECT dedup_key, lead_id, payload FROM leads WHERE dedup_key = ?", (key,)
             ).fetchone()
+            if existing is None and lead.source and lead.source_id:
+                for candidate_key, candidate_id, payload in self.connection.execute(
+                    "SELECT dedup_key, lead_id, payload FROM leads"
+                ):
+                    old = Lead.model_validate_json(payload)
+                    if old.source == lead.source and old.source_id == lead.source_id:
+                        existing = (candidate_key, candidate_id, payload)
+                        break
+            if existing is not None and existing[0] != key:
+                self.connection.execute(
+                    "UPDATE campaign_leads SET lead_dedup_key = ? WHERE lead_dedup_key = ?",
+                    (key, existing[0]),
+                )
+                self.connection.execute("UPDATE leads SET dedup_key = ?, payload = ? WHERE dedup_key = ?", (key, lead.model_dump_json(), existing[0]))
+                updated += 1
+                continue
             self.connection.execute(
-                "INSERT INTO leads(dedup_key, payload) VALUES(?, ?) "
+                "INSERT INTO leads(dedup_key, payload, lead_id) VALUES(?, ?, COALESCE((SELECT lead_id FROM leads WHERE dedup_key = ?), ?)) "
                 "ON CONFLICT(dedup_key) DO UPDATE SET payload = excluded.payload",
-                (key, lead.model_dump_json()),
+                (key, lead.model_dump_json(), key, __import__('uuid').uuid4().hex),
             )
-            if exists:
+            if existing:
                 updated += 1
             else:
                 inserted += 1
