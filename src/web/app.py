@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from ..config import Settings
@@ -17,7 +18,8 @@ def create_app(
     resolved_service = service or SearchLeadsService(
         resolved_settings, store=resolved_store
     )
-    app = FastAPI(title="Local Lead Generation")
+    app = FastAPI(title="جمع‌آور لید محلی")
+    app.mount("/static", StaticFiles(directory="static"), name="static")
     app.state.settings = resolved_settings
     app.state.store = resolved_store
     app.state.service = resolved_service

@@ -1,14 +1,20 @@
 {% extends "base.html" %}
-{% block title %}Dashboard · Local Lead Generation{% endblock %}
+{% block title %}نمای کلی · نقشهٔ لید{% endblock %}
 {% block content %}
-<h1>Lead generation dashboard</h1>
-<div class="cards">
-  <div class="card"><strong>Campaigns</strong><br>{{ campaign_count }}</div>
-  <div class="card"><strong>Leads</strong><br>{{ lead_count }}</div>
+<section class="hero">
+  <span class="eyebrow">مرکز فرمان لیدها</span>
+  <h1>از جست‌وجو تا فرصت فروش، یک‌جا.</h1>
+  <p>کسب‌وکارهای محلی را بر اساس شهر و حوزهٔ فعالیت پیدا کن، در کمپین‌ها مرتب کن و خروجی آمادهٔ استفاده بگیر.</p>
+  <div class="actions"><a class="btn" href="/search">شروع جست‌وجو</a><a class="btn secondary" href="/campaigns">مدیریت کمپین‌ها</a></div>
+</section>
+<section class="grid" aria-label="آمار کلی">
+  <div class="card metric"><span>کمپین‌های فعال</span><strong>{{ campaign_count }}</strong></div>
+  <div class="card metric"><span>لیدهای ذخیره‌شده</span><strong>{{ lead_count }}</strong></div>
+  <div class="card metric"><span>منبع فعلی</span><strong style="font-size:24px">Google Places</strong></div>
+</section>
+<section class="section-head"><div><h2>شروع سریع</h2><p>برای ادامه فقط یکی از مسیرها را انتخاب کن.</p></div></section>
+<div class="grid">
+  <a class="card" href="/search"><span class="eyebrow">۱ · پیدا کردن</span><h3>یک جست‌وجوی جدید</h3><p class="muted">نام شغل، شهر و کمپین را انتخاب کن.</p></a>
+  <a class="card" href="/campaigns"><span class="eyebrow">۲ · سازمان‌دهی</span><h3>کمپین‌هایت را ببین</h3><p class="muted">نتایج مرتبط را در یک فضای کاری نگه دار.</p></a>
 </div>
-<h2>Quick actions</h2>
-<ul>
-  <li><a href="/search">Run a Places search</a></li>
-  <li><a href="/campaigns">Manage Campaigns</a></li>
-</ul>
 {% endblock %}

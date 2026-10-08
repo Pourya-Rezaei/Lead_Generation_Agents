@@ -1,22 +1,19 @@
 {% extends "base.html" %}
-{% block title %}Campaigns · Local Lead Generation{% endblock %}
+{% block title %}کمپین‌ها · نقشهٔ لید{% endblock %}
 {% block content %}
-<h1>Campaigns</h1>
-<form method="post" action="/campaigns">
-  <label for="campaign_id">Campaign ID</label>
-  <input id="campaign_id" name="campaign_id" required>
-  <label for="name">Name</label>
-  <input id="name" name="name" required>
-  <label for="description">Description</label>
-  <textarea id="description" name="description" rows="3"></textarea>
-  <button type="submit">Create Campaign</button>
-</form>
-<h2>Existing Campaigns</h2>
-<ul>
-{% for campaign in campaigns %}
-  <li><a href="/campaigns/{{ campaign.campaign_id }}">{{ campaign.name }}</a> ({{ campaign.campaign_id }})</li>
-{% else %}
-  <li>No Campaigns yet.</li>
-{% endfor %}
+<section class="hero"><span class="eyebrow">فضای کاری</span><h1>کمپین‌ها</h1><p>هر کمپین یک مسیر مستقل برای جمع‌کردن و پیگیری لیدهای مرتبط است.</p></section>
+<div class="panel">
+  <div class="section-head"><div><h2>ساخت کمپین تازه</h2><p>یک نام واضح انتخاب کن تا بعداً سریع پیدایش کنی.</p></div></div>
+  <form method="post" action="/campaigns" class="form-grid">
+    <div class="field"><label for="campaign_id">شناسهٔ کمپین</label><input id="campaign_id" name="campaign_id" placeholder="مثلاً tehran-dentists" required></div>
+    <div class="field"><label for="name">نام کمپین</label><input id="name" name="name" placeholder="دندان‌پزشکی تهران" required></div>
+    <div class="field full"><label for="description">توضیح کوتاه <span class="muted">(اختیاری)</span></label><textarea id="description" name="description" rows="3" placeholder="هدف این کمپین چیست؟"></textarea></div>
+    <div><button class="btn" type="submit">ساخت کمپین</button></div>
+  </form>
+</div>
+<section class="section-head"><div><h2>کمپین‌های موجود</h2><p>{{ campaigns|length }} کمپین در این دیتابیس</p></div></section>
+<ul class="list">
+{% for campaign in campaigns %}<li><a href="/campaigns/{{ campaign.campaign_id }}"><span><strong>{{ campaign.name }}</strong><br><small class="muted">{{ campaign.description or 'بدون توضیح' }}</small></span><code>{{ campaign.campaign_id }}</code></a></li>
+{% else %}<li class="card">هنوز کمپینی ساخته نشده است.</li>{% endfor %}
 </ul>
 {% endblock %}
