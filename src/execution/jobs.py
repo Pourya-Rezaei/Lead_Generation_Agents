@@ -18,6 +18,8 @@ class Job:
     progress: dict[str, Any]
     error_code: str | None
     fencing_token: int
+    provider_run_id: str | None
+    provider_state: str | None
 
 
 class JobRepository:
@@ -41,10 +43,10 @@ class JobRepository:
         return self.get(job_id)  # type: ignore[return-value]
 
     def get(self, job_id: str) -> Job | None:
-        row = self.connection.execute("SELECT job_id, idempotency_key, request, state, progress, error_code, fencing_token FROM jobs WHERE job_id = ?", (job_id,)).fetchone()
+        row = self.connection.execute("SELECT job_id, idempotency_key, request, state, progress, error_code, fencing_token, provider_run_id, provider_state FROM jobs WHERE job_id = ?", (job_id,)).fetchone()
         if row is None:
             return None
-        return Job(row[0], row[1], json.loads(row[2]), row[3], json.loads(row[4]), row[5], row[6])
+        return Job(row[0], row[1], json.loads(row[2]), row[3], json.loads(row[4]), row[5], row[6], row[7], row[8])
 
     def claim(self, worker_id: str, lease_seconds: int = 60) -> Job | None:
         now = datetime.now(UTC)

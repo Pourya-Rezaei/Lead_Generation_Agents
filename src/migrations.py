@@ -6,7 +6,7 @@ import sqlite3
 import uuid
 from collections.abc import Callable
 
-CURRENT_SCHEMA_VERSION = 8
+CURRENT_SCHEMA_VERSION = 9
 
 
 def _table_columns(connection: sqlite3.Connection, table: str) -> set[str]:
@@ -191,7 +191,13 @@ def _migration_8(connection: sqlite3.Connection) -> None:
     connection.execute("CREATE INDEX IF NOT EXISTS idx_profile_lead_status ON profile_candidates(lead_id, status)")
 
 
-MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (_migration_1, _migration_2, _migration_3, _migration_4, _migration_5, _migration_6, _migration_7, _migration_8)
+def _migration_9(connection: sqlite3.Connection) -> None:
+    connection.execute("ALTER TABLE jobs ADD COLUMN provider_run_id TEXT")
+    connection.execute("ALTER TABLE jobs ADD COLUMN provider_state TEXT")
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_jobs_provider_run ON jobs(provider_run_id)")
+
+
+MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (_migration_1, _migration_2, _migration_3, _migration_4, _migration_5, _migration_6, _migration_7, _migration_8, _migration_9)
 
 
 def migrate(connection: sqlite3.Connection) -> int:
