@@ -85,6 +85,7 @@ def test_missing_dataset_id_returns_failure_without_retrieval():
     assert result.finished_at is not None
     assert "dataset id" in result.warnings[0].lower()
     assert client.dataset_calls == []
+    assert places.failure_metadata == {"provider_run_id": "run-1"}
 
 
 @pytest.mark.parametrize("dataset", [[], {"items": []}])

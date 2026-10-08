@@ -1,7 +1,8 @@
 import typer
 
 from .config import Settings
-from .registry import DisabledSourceError
+from .errors import ApifyError, SearchAttemptPersistenceError
+from .results import RunStatus
 from .service import SearchLeadsService
 from .storage import LeadStore
 
@@ -23,9 +24,23 @@ def search(
     service = SearchLeadsService(settings)
     try:
         result = service.search(query, location, source, limit, campaign)
-        selected = service.store.get_campaign(campaign) if campaign else service.store.default_campaign()
-    except (ValueError, DisabledSourceError) as exc:
+        selected = (
+            service.store.get_campaign(campaign)
+            if campaign
+            else service.store.default_campaign()
+        )
+    except SearchAttemptPersistenceError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    except (ValueError, ApifyError) as exc:
         raise typer.BadParameter(str(exc)) from exc
+    if result.status in {RunStatus.FAILED, RunStatus.ABORTED, RunStatus.TIMED_OUT}:
+        message = (
+            " ".join(result.warnings)
+            or f"search ended with status {result.status.value}"
+        )
+        typer.echo(f"Search failed: {message}", err=True)
+        raise typer.Exit(code=1)
     typer.echo(
         f"Saved {len(result.leads)} leads ({result.status.value}) "
         f"to campaign '{selected.campaign_id}' ({selected.name})"

@@ -34,6 +34,11 @@ class ApifyPlacesConnector(Connector):
         self.last_run: dict[str, Any] = {}
         self.raw_items: list[dict[str, Any]] = []
 
+    @property
+    def failure_metadata(self) -> dict[str, str]:
+        run_id = self.last_run.get("run_id")
+        return {"provider_run_id": run_id} if isinstance(run_id, str) and run_id else {}
+
     def search(self, query: str, location: str, limit: int = 20) -> SearchResult:
         started_at = datetime.now(UTC)
         run = self.client.run_actor(

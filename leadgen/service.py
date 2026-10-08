@@ -1,12 +1,46 @@
+from datetime import UTC, datetime
+
 from .config import Settings
-from .errors import CampaignNotFoundError
+from .errors import (
+    ApifyCredentialError,
+    ApifyError,
+    ApifyMalformedResponseError,
+    ApifyNotFoundError,
+    ApifyTransientError,
+    CampaignNotFoundError,
+    SearchAttemptPersistenceError,
+)
 from .registry import ConnectorRegistry
 from .results import SearchResult
 from .storage import LeadStore
 
 
+def _safe_error_summary(error: Exception) -> str:
+    if isinstance(error, ApifyCredentialError):
+        return "Apify rejected the configured credentials."
+    if isinstance(error, ApifyNotFoundError):
+        return "Apify actor or endpoint was not found."
+    if isinstance(error, ApifyTransientError):
+        return "Apify request failed after retries."
+    if isinstance(error, ApifyMalformedResponseError):
+        return "Apify returned an invalid response."
+    if isinstance(error, ApifyError):
+        return "Apify request failed."
+    if (
+        isinstance(error, ValueError)
+        and str(error) == "APIFY_API_TOKEN is required for places"
+    ):
+        return "APIFY_API_TOKEN is required for places."
+    return "Search failed with an unexpected error."
+
+
 class SearchLeadsService:
-    def __init__(self, settings: Settings, store: LeadStore | None = None, registry: ConnectorRegistry | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        store: LeadStore | None = None,
+        registry: ConnectorRegistry | None = None,
+    ) -> None:
         self.settings = settings
         self.store = store or LeadStore(settings.database_path)
         self.registry = registry or ConnectorRegistry()
@@ -30,9 +64,34 @@ class SearchLeadsService:
         )
         if campaign is None:
             raise CampaignNotFoundError(f"campaign not found: {campaign_id}")
-        if source == "places" and not self.settings.apify_api_token:
-            raise ValueError("APIFY_API_TOKEN is required for places")
-        connector = self.registry.create(source, self.settings)
-        result = connector.search(query, location, limit)
+        self.registry.validate_source(source)
+        started_at = datetime.now(UTC)
+        connector = None
+        try:
+            if source == "places" and not self.settings.apify_api_token:
+                raise ValueError("APIFY_API_TOKEN is required for places")
+            connector = self.registry.create(source, self.settings)
+            result = connector.search(query, location, limit)
+        except Exception as exc:
+            try:
+                self.store.record_failed_search(
+                    campaign.campaign_id,
+                    query,
+                    location,
+                    source,
+                    type(exc).__name__,
+                    _safe_error_summary(exc),
+                    started_at=started_at,
+                    failure_metadata=(
+                        connector.failure_metadata if connector is not None else None
+                    ),
+                )
+            except Exception as persistence_error:
+                raise SearchAttemptPersistenceError(
+                    f"Search failed ({type(exc).__name__}) and its failure record "
+                    "could not be saved "
+                    f"({type(persistence_error).__name__})."
+                ) from exc
+            raise
         self.store.persist_search_result(campaign.campaign_id, result, query, location)
         return result

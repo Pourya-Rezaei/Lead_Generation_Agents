@@ -35,3 +35,7 @@ class ApifyTransientError(ApifyError):
 
 class ApifyMalformedResponseError(ApifyError):
     """Apify returned JSON with an unexpected shape."""
+
+
+class SearchAttemptPersistenceError(RuntimeError):
+    """A failed search could not be recorded in the local database."""

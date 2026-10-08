@@ -4,6 +4,10 @@ from ..results import SearchResult
 
 
 class Connector(ABC):
+    @property
+    def failure_metadata(self) -> dict[str, str]:
+        return {}
+
     @abstractmethod
     def search(self, query: str, location: str, limit: int = 20) -> SearchResult: ...
 

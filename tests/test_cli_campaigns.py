@@ -60,6 +60,9 @@ class FixedConnector:
 
 
 class FixedRegistry:
+    def validate_source(self, name):
+        assert name == "fake"
+
     def create(self, source, settings):
         assert source == "fake"
         return FixedConnector()

@@ -20,11 +20,12 @@ class ConnectorRegistry:
             ),
         }
 
-    def create(self, name: str, settings: Any) -> Connector:
+    def validate_source(self, name: str) -> None:
         if name == "web":
             raise DisabledSourceError("source 'web' is disabled")
-        try:
-            factory = self._factories[name]
-        except KeyError as exc:
-            raise ValueError(f"unknown source: {name}") from exc
-        return factory(settings)
+        if name not in self._factories:
+            raise ValueError(f"unknown source: {name}")
+
+    def create(self, name: str, settings: Any) -> Connector:
+        self.validate_source(name)
+        return self._factories[name](settings)

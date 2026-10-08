@@ -143,6 +143,52 @@ class LeadStore:
                 )
         return summary
 
+    def record_failed_search(
+        self,
+        campaign_id: str,
+        query: str,
+        location: str,
+        source: str,
+        error_type: str,
+        error_summary: str,
+        *,
+        started_at: datetime,
+        failure_metadata: dict[str, str] | None = None,
+    ) -> str:
+        now = datetime.now(UTC)
+        run_id = f"local-{uuid.uuid4()}"
+        metadata = {
+            "run_id": run_id,
+            "campaign_id": campaign_id,
+            "query": query,
+            "location": location,
+            "source": source,
+            "error_type": error_type,
+            "error_summary": error_summary,
+            "started_at": started_at.isoformat(),
+        }
+        provider_run_id = (failure_metadata or {}).get("provider_run_id")
+        if isinstance(provider_run_id, str) and provider_run_id:
+            metadata["provider_run_id"] = provider_run_id
+        with self._connect() as db:
+            campaigns = CampaignRepository(db)
+            if campaigns.get(campaign_id) is None:
+                raise CampaignNotFoundError(f"campaign not found: {campaign_id}")
+            runs = RunRepository(db)
+            runs.start(
+                run_id,
+                metadata,
+                started_at=started_at,
+                campaign_id=campaign_id,
+            )
+            runs.fail(
+                run_id,
+                error_summary,
+                metadata,
+                finished_at=now,
+            )
+        return run_id
+
     def create_campaign(
         self,
         name: str,
