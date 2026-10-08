@@ -22,6 +22,8 @@ compass~crawler-google-places
 
 ## API flow
 
+Client اکنون lifecycle را به عملیات مستقل تقسیم می‌کند: `start_actor`، `get_run`، `dataset_items` و `abort_run`. wrapper قدیمی `run_actor` برای سازگاری باقی مانده و از همان مسیر start استفاده می‌کند.
+
 1. `POST /v2/acts/compass~crawler-google-places/runs`
 2. ارسال Bearer token در Header
 3. انتظار برای پایان run با `waitForFinish=60`

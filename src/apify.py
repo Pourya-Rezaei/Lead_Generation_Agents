@@ -67,14 +67,35 @@ class ApifyClient:
         *,
         wait_for_finish: int = 60,
     ) -> dict[str, Any]:
-        """Start an Actor and return the validated run data object."""
+        """Start an Actor, wait when requested, and return validated run data."""
+        run = self.start_actor(actor, input_data, wait_for_finish=wait_for_finish)
+        return self._validate_run_data(run)
+
+    def start_actor(
+        self,
+        actor: str,
+        input_data: Mapping[str, Any],
+        *,
+        wait_for_finish: int = 0,
+    ) -> dict[str, Any]:
         url = f"{self.base_url}/acts/{quote(actor, safe='~')}/runs"
-        payload = self._request_json(
-            "post",
-            url,
-            params={"waitForFinish": str(wait_for_finish)},
-            json=dict(input_data),
-        )
+        payload = self._request_json("post", url, params={"waitForFinish": str(wait_for_finish)}, json=dict(input_data))
+        return self._validate_run_data(payload)
+
+    def get_run(self, run_id: str) -> dict[str, Any]:
+        if not run_id:
+            raise ValueError("run_id is required")
+        payload = self._request_json("get", f"{self.base_url}/actor-runs/{quote(run_id, safe='')}")
+        return self._validate_run_data(payload)
+
+    def abort_run(self, run_id: str) -> dict[str, Any]:
+        if not run_id:
+            raise ValueError("run_id is required")
+        payload = self._request_json("post", f"{self.base_url}/actor-runs/{quote(run_id, safe='')}/abort")
+        return self._validate_run_data(payload)
+
+    @staticmethod
+    def _validate_run_data(payload: Any) -> dict[str, Any]:
         if not isinstance(payload, dict):
             raise ApifyMalformedResponseError("Apify run response must be an object")
         data = payload.get("data", payload)

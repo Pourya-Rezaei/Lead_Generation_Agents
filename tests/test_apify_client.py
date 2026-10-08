@@ -73,6 +73,19 @@ def test_run_actor_allows_status_without_dataset_id():
     assert run == {"id": "run-1", "status": "RUNNING"}
 
 
+def test_lifecycle_can_start_poll_and_abort_without_exposing_token():
+    transport = ScriptedClient([
+        response(200, {"data": {"id": "run-1", "status": "RUNNING"}}),
+        response(200, {"data": {"id": "run-1", "status": "SUCCEEDED", "defaultDatasetId": "ds-1"}}),
+        response(200, {"data": {"id": "run-1", "status": "ABORTED"}}),
+    ])
+    client = make_client(transport)
+    assert client.start_actor("actor~name", {}, wait_for_finish=0)["status"] == "RUNNING"
+    assert client.get_run("run-1")["status"] == "SUCCEEDED"
+    assert client.abort_run("run-1")["status"] == "ABORTED"
+    assert all("top-secret-token" not in request[1] for request in transport.requests)
+
+
 def test_dataset_items_retrieves_clean_items():
     transport = ScriptedClient([response(200, [{"title": "Cafe"}])])
 
