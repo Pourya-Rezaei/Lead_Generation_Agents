@@ -15,6 +15,26 @@ app.add_typer(campaign_app, name="campaign")
 app.add_typer(jobs_app, name="jobs")
 
 
+@app.command("worker")
+def worker_once(
+    once: bool = typer.Option(True, "--once/--loop", help="Process one job or keep polling."),
+    worker_id: str = typer.Option("local-worker", "--worker-id"),
+    db: str | None = typer.Option(None, "--db"),
+) -> None:
+    import sqlite3
+    from .execution.handlers import places_handler
+    from .execution.worker import JobWorker
+    from .migrations import migrate
+    settings = Settings(database_path=db or Settings().database_path)
+    with sqlite3.connect(settings.database_path) as connection:
+        migrate(connection)
+        processed = JobWorker(connection, worker_id).run_once(places_handler(SearchLeadsService(settings)))
+    if processed is None:
+        typer.echo("No queued job")
+    else:
+        typer.echo(f"Processed job '{processed.job_id}' ({processed.state})")
+
+
 @app.command()
 def search(
     query: str,

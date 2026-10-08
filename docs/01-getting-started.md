@@ -49,7 +49,13 @@ leadgen jobs status JOB_ID
 leadgen jobs cancel JOB_ID
 ```
 
-این دستورات Job را ثبت و کنترل می‌کنند؛ برای اجرای آن‌ها هنوز باید worker جداگانه اجرا شود.
+این دستورات Job را ثبت و کنترل می‌کنند. برای پردازش یک Job صف‌شده، worker one-shot را اجرا کنید:
+
+```bash
+leadgen worker --once
+```
+
+حالت `--loop` فعلاً به‌صورت محافظه‌کارانه فقط همان مسیر one-shot را اجرا می‌کند و daemon دائمی پس از تکمیل recovery و shutdown اضافه خواهد شد.
 
 ## پنل وب محلی
 
