@@ -15,6 +15,37 @@ from .schemas import CampaignForm
 router = APIRouter()
 
 
+@router.post("/api/jobs")
+def api_submit_job(request: Request, payload: dict):
+    from ..execution.service import JobService
+    required = {"query", "location"}
+    if not required <= payload.keys():
+        raise HTTPException(status_code=422, detail="query and location are required")
+    key = str(payload.get("idempotency_key", "")).strip()
+    if not key:
+        raise HTTPException(status_code=422, detail="idempotency_key is required")
+    job = JobService(request.app.state.settings.database_path).submit(payload, key)
+    return {"job_id": job.job_id, "state": job.state}
+
+
+@router.get("/api/jobs/{job_id}")
+def api_job_status(request: Request, job_id: str):
+    from ..execution.service import JobService
+    job = JobService(request.app.state.settings.database_path).get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"job_id": job.job_id, "state": job.state, "progress": job.progress, "error_code": job.error_code}
+
+
+@router.post("/api/jobs/{job_id}/cancel")
+def api_cancel_job(request: Request, job_id: str):
+    from ..execution.service import JobService
+    job = JobService(request.app.state.settings.database_path).cancel(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"job_id": job.job_id, "state": job.state}
+
+
 def _templates(request: Request):
     return request.app.state.templates
 
