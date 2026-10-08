@@ -6,7 +6,7 @@ import sqlite3
 import uuid
 from collections.abc import Callable
 
-CURRENT_SCHEMA_VERSION = 4
+CURRENT_SCHEMA_VERSION = 5
 
 
 def _table_columns(connection: sqlite3.Connection, table: str) -> set[str]:
@@ -149,7 +149,19 @@ def _migration_4(connection: sqlite3.Connection) -> None:
     connection.execute("CREATE INDEX IF NOT EXISTS idx_merge_source ON lead_merge_audit(source_lead_id)")
 
 
-MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (_migration_1, _migration_2, _migration_3, _migration_4)
+def _migration_5(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS budget_reservations ("
+        "reservation_id TEXT PRIMARY KEY, job_id TEXT NOT NULL, step_id TEXT NOT NULL, "
+        "amount_minor INTEGER NOT NULL CHECK (amount_minor >= 0), currency TEXT NOT NULL, "
+        "actual_minor INTEGER, state TEXT NOT NULL CHECK (state IN ('reserved','reconciled','released','unknown')), "
+        "pricing_version TEXT NOT NULL, created_at TEXT NOT NULL, reconciled_at TEXT, "
+        "UNIQUE(job_id, step_id))"
+    )
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_budget_state ON budget_reservations(state)")
+
+
+MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (_migration_1, _migration_2, _migration_3, _migration_4, _migration_5)
 
 
 def migrate(connection: sqlite3.Connection) -> int:
