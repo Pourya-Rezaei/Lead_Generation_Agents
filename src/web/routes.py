@@ -50,6 +50,30 @@ def _templates(request: Request):
     return request.app.state.templates
 
 
+@router.get("/api/profile-candidates/{lead_id}")
+def api_profile_candidates(request: Request, lead_id: str):
+    import sqlite3
+    with sqlite3.connect(request.app.state.settings.database_path) as db:
+        rows = db.execute("SELECT candidate_id, platform, url, status, confidence, evidence, review_reason FROM profile_candidates WHERE lead_id = ? ORDER BY created_at", (lead_id,)).fetchall()
+    return [{"candidate_id": r[0], "platform": r[1], "url": r[2], "status": r[3], "confidence": r[4], "evidence": r[5], "review_reason": r[6]} for r in rows]
+
+
+@router.post("/api/profile-candidates/{candidate_id}/review")
+def api_review_profile(request: Request, candidate_id: str, payload: dict):
+    from ..quality.profiles import ProfileRepository
+    import sqlite3
+    status = str(payload.get("status", ""))
+    reason = str(payload.get("reason", ""))
+    with sqlite3.connect(request.app.state.settings.database_path) as db:
+        try:
+            ProfileRepository(db).review(candidate_id, status, reason)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        if db.execute("SELECT changes()").fetchone()[0] == 0:
+            raise HTTPException(status_code=404, detail="Profile candidate not found")
+    return {"candidate_id": candidate_id, "status": status}
+
+
 @router.get("/", response_class=HTMLResponse)
 def dashboard(request: Request):
     store = request.app.state.store
