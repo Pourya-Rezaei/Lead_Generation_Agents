@@ -13,6 +13,22 @@ def test_duplicate_submission_returns_same_job():
         assert first.job_id == second.job_id
 
 
+def test_claimed_job_can_persist_provider_run_state():
+    db = sqlite3.connect(":memory:")
+    migrate(db)
+    repo = JobRepository(db)
+    job = repo.submit({"query": "cafe"}, "provider-state-key")
+    claimed = repo.claim("worker-1")
+    assert claimed is not None
+
+    repo.update_provider_run(claimed.job_id, "worker-1", claimed.fencing_token, "run-123", "RUNNING")
+
+    updated = repo.get(job.job_id)
+    assert updated is not None
+    assert updated.provider_run_id == "run-123"
+    assert updated.provider_state == "RUNNING"
+
+
 def test_only_one_worker_claims_queued_job():
     with sqlite3.connect(":memory:") as db:
         migrate(db)

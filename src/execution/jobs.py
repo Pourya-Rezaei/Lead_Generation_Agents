@@ -62,5 +62,12 @@ class JobRepository:
     def request_cancel(self, job_id: str) -> None:
         self.connection.execute("UPDATE jobs SET state = CASE WHEN state = 'queued' THEN 'cancelled' WHEN state = 'running' THEN 'cancel_requested' ELSE state END, updated_at = ? WHERE job_id = ?", (datetime.now(UTC).isoformat(), job_id))
 
+    def update_provider_run(self, job_id: str, worker_id: str, fencing_token: int, run_id: str, state: str) -> None:
+        self.connection.execute(
+            "UPDATE jobs SET provider_run_id = ?, provider_state = ?, updated_at = ? "
+            "WHERE job_id = ? AND state = 'running' AND worker_id = ? AND fencing_token = ?",
+            (run_id, state, datetime.now(UTC).isoformat(), job_id, worker_id, fencing_token),
+        )
+
     def update_progress(self, job_id: str, worker_id: str, fencing_token: int, completed_steps: list[str]) -> None:
         self.connection.execute("UPDATE jobs SET progress = ?, lease_until = ?, updated_at = ? WHERE job_id = ? AND state = 'running' AND worker_id = ? AND fencing_token = ?", (json.dumps({"completed_steps": completed_steps}), (datetime.now(UTC) + timedelta(seconds=60)).isoformat(), datetime.now(UTC).isoformat(), job_id, worker_id, fencing_token))
