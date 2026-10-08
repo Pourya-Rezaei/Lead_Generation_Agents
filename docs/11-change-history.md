@@ -107,6 +107,12 @@ CLI --help         -> successful
 - سپس افزودن Google Search و Connectorهای اجتماعی با privacy review
 - در مراحل بعد queue، cache، dashboard، CRM export و budget guard
 
+## نمودار معماری MVP
+
+- نمودار Mermaid جریان کامل CLI تا Apify، mapping، normalization/scoring، تراکنش SQLite و exportهای JSON/CSV را در `docs/04-architecture.md` ثبت می‌کند.
+- مسیر ثبت Run ناموفق، عدم ذخیره Lead/raw برای failure و مرز حریم خصوصی داده‌های عمومی و حرفه‌ای نیز در نمودار و توضیحات معماری مشخص شده است.
+- این تغییر مستنداتی است و قرارداد CLI، schema و رفتار اجرایی را تغییر نمی‌دهد.
+
 ## وضعیت Git
 
 - branch اصلی: `main`
