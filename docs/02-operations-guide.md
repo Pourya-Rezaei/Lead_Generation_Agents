@@ -8,6 +8,10 @@
 4. خروجی را در `exports/` ذخیره کنید.
 5. SQLite و خروجی‌ها را backup کنید.
 
+## صف اجرای محلی
+
+در فاز B، جدول `jobs` primitive صف محلی را فراهم می‌کند: ارسال تکراری با `idempotency_key` همان Job را برمی‌گرداند، Jobهای queued قابل claim توسط یک worker هستند و lease/fencing برای recovery اولیه ثبت می‌شود. این primitive هنوز اجرای Actor را خودکار نمی‌کند و برای استفادهٔ unattended باید worker و recovery کامل اضافه شوند.
+
 ## اجرای پنل وب محلی
 
 ```bash
