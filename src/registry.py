@@ -3,6 +3,7 @@ from typing import Any
 
 from .connectors.base import Connector
 from .connectors.apify_places import ApifyPlacesConnector
+from .connectors.apify_google_search import ApifyGoogleSearchConnector
 from .errors import ApifyError
 
 ConnectorFactory = Callable[[Any], Connector]
@@ -16,6 +17,9 @@ class ConnectorRegistry:
     def __init__(self) -> None:
         self._factories: dict[str, ConnectorFactory] = {
             "places": lambda settings: ApifyPlacesConnector(
+                settings.apify_api_token or "", settings.http_timeout
+            ),
+            "google_search": lambda settings: ApifyGoogleSearchConnector(
                 settings.apify_api_token or "", settings.http_timeout
             ),
         }

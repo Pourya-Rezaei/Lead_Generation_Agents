@@ -26,11 +26,10 @@ def _safe_error_summary(error: Exception) -> str:
         return "Apify returned an invalid response."
     if isinstance(error, ApifyError):
         return "Apify request failed."
-    if (
-        isinstance(error, ValueError)
-        and str(error) == "APIFY_API_TOKEN is required for places"
-    ):
+    if isinstance(error, ValueError) and str(error) == "APIFY_API_TOKEN is required for places":
         return "APIFY_API_TOKEN is required for places."
+    if isinstance(error, ValueError) and str(error).startswith("APIFY_API_TOKEN is required for "):
+        return "APIFY_API_TOKEN is required for the selected source."
     return "Search failed with an unexpected error."
 
 
@@ -68,8 +67,8 @@ class SearchLeadsService:
         started_at = datetime.now(UTC)
         connector = None
         try:
-            if source == "places" and not self.settings.apify_api_token:
-                raise ValueError("APIFY_API_TOKEN is required for places")
+            if source in {"places", "google_search"} and not self.settings.apify_api_token:
+                raise ValueError(f"APIFY_API_TOKEN is required for {source}")
             connector = self.registry.create(source, self.settings)
             result = connector.search(query, location, limit)
         except Exception as exc:
