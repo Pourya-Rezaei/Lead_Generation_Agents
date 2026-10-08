@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Local Lead Generation{% endblock %}
+{% block content %}
+<h1>Lead generation dashboard</h1>
+<div class="cards">
+  <div class="card"><strong>Campaigns</strong><br>{{ campaign_count }}</div>
+  <div class="card"><strong>Leads</strong><br>{{ lead_count }}</div>
+</div>
+<h2>Quick actions</h2>
+<ul>
+  <li><a href="/search">Run a Places search</a></li>
+  <li><a href="/campaigns">Manage Campaigns</a></li>
+</ul>
+{% endblock %}

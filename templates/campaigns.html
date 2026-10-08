@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Campaigns · Local Lead Generation{% endblock %}
+{% block content %}
+<h1>Campaigns</h1>
+<form method="post" action="/campaigns">
+  <label for="campaign_id">Campaign ID</label>
+  <input id="campaign_id" name="campaign_id" required>
+  <label for="name">Name</label>
+  <input id="name" name="name" required>
+  <label for="description">Description</label>
+  <textarea id="description" name="description" rows="3"></textarea>
+  <button type="submit">Create Campaign</button>
+</form>
+<h2>Existing Campaigns</h2>
+<ul>
+{% for campaign in campaigns %}
+  <li><a href="/campaigns/{{ campaign.campaign_id }}">{{ campaign.name }}</a> ({{ campaign.campaign_id }})</li>
+{% else %}
+  <li>No Campaigns yet.</li>
+{% endfor %}
+</ul>
+{% endblock %}
