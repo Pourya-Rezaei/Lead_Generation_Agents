@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from ..errors import (
     ApifyCredentialError,
@@ -74,6 +76,26 @@ def campaign_detail(request: Request, campaign_id: str):
             "campaign": campaign,
             "stats": store.campaign_stats(campaign_id),
             "leads": store.leads_for_campaign(campaign_id),
+        },
+    )
+
+
+@router.get("/campaigns/{campaign_id}/export")
+def export_campaign(request: Request, campaign_id: str, format: str = "json"):
+    if format not in {"json", "csv"}:
+        raise HTTPException(status_code=400, detail="format must be json or csv")
+    if request.app.state.store.get_campaign(campaign_id) is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    suffix = f".{format}"
+    with NamedTemporaryFile(suffix=suffix) as temporary:
+        request.app.state.store.export(temporary.name, format, campaign_id=campaign_id)
+        content = Path(temporary.name).read_bytes()
+    media_type = "application/json" if format == "json" else "text/csv; charset=utf-8"
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{campaign_id}.{format}"'
         },
     )
 
