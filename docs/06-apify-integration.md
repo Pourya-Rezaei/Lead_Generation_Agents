@@ -47,6 +47,10 @@ Adapter `google_search` با Actor `apify~google-search-scraper` اضافه شد
 
 اجرای واقعی با query `دندانپزشکی`، location `تهران` و limit برابر ۵ با موفقیت انجام شد. پنج لید در SQLite ذخیره شد و exportهای JSON و CSV در `exports/phase2/` ساخته شدند. تست‌های خودکار نیز با نتیجه `4 passed` موفق هستند.
 
+## Enrichment وب در فاز C
+
+نتایج Google Search در enrichment فقط به Lead مشخص‌شده با `lead_id` attach می‌شوند و با discovery مستقل کسب‌وکار مخلوط نمی‌شوند. query به‌صورت deterministic از نام کسب‌وکار و شهر ساخته می‌شود. فقط URLهای HTTPS با title و نشانهٔ شهر پذیرفته می‌شوند؛ نتیجهٔ بدون تطبیق شهر یا رکورد malformed حذف و شمارش می‌شود. تطبیق دامنهٔ رسمی موجود، candidate را فقط به `probable` ارتقا می‌دهد؛ directory و snippet هرگز وب‌سایت رسمی یا مالکیت را تأیید نمی‌کنند. crawl مستقیم سایت و email حدسی در این فاز انجام نمی‌شود.
+
 ## منابع اجتماعی: قرارداد آماده، اجرا غیرفعال
 
 قرارداد mapping مشترک برای Instagram، TikTok و YouTube در `src/connectors/social_profiles.py` آماده است. فقط URL عمومی HTTPS، عنوان/handle، bio حرفه‌ای و لینک رسمی احتمالی نگه داشته می‌شوند؛ email، comment، reviewer، audience و دادهٔ شخصی حذف می‌شوند. هر سه connector تا contract gate رسمی Actor، بررسی schema/pricing و تأیید privacy، `disabled` باقی می‌مانند.
