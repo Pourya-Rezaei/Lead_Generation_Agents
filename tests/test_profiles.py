@@ -13,3 +13,4 @@ def test_profile_review_is_explicit_and_audited():
         candidate_id = repo.save("lead-1", "instagram", ProfileCandidate("https://instagram.com/cafe", "Cafe", ("same-official-domain",), 0.9, "probable"))
         repo.review(candidate_id, "confirmed", "official business link reviewed")
         assert db.execute("SELECT status, review_reason, reviewed_at FROM profile_candidates").fetchone()[0:2] == ("confirmed", "official business link reviewed")
+        assert db.execute("SELECT old_status, new_status, reason FROM profile_review_audit").fetchone() == ("probable", "confirmed", "official business link reviewed")
