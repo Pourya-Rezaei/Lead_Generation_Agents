@@ -122,8 +122,12 @@ class ApifyPlacesConnector(Connector):
         self._set_compatibility_state(run_id, dataset_id, status)
         if status is not RunStatus.SUCCEEDED or not dataset_id:
             return self._failed_result(run_id, dataset_id, started_at, "Resumed Apify run did not produce a usable dataset")
-        payload = self.client.dataset_items(dataset_id)
-        items = payload[:limit]
+        iterate = getattr(self.client, "iter_dataset_items", None)
+        if callable(iterate):
+            pages = iterate(dataset_id, page_size=min(1000, max(limit, 1)), max_items=limit)
+            items = [item for page in pages for item in page][:limit]
+        else:
+            items = self.client.dataset_items(dataset_id)[:limit]
         self.raw_items = [self._allowlisted(item) for item in items]
         self.last_run["item_count"] = len(self.raw_items)
         return SearchResult(
