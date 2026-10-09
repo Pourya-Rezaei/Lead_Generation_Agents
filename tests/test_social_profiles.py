@@ -14,6 +14,24 @@ from src.results import PlatformObservation, PlatformSearchResult, RunStatus
 
 def test_social_connectors_are_disabled_by_default():
     assert not INSTAGRAM.enabled and not TIKTOK.enabled and not YOUTUBE.enabled
+    for connector in (INSTAGRAM, TIKTOK, YOUTUBE):
+        assert connector.contract.contract_status == "unverified"
+        assert connector.contract.pricing_status == "not_verified"
+        assert connector.contract.execution_policy == "disabled_no_paid_calls"
+
+
+def test_actor_request_is_safe_preview_and_never_executable():
+    request = InstagramProfileInput(profile_url="https://instagram.com/cafe", query="cafe", location="Tehran")
+    preview = INSTAGRAM.build_request(request)
+    assert preview.actor == "apify~instagram-scraper"
+    assert preview.executable is False
+    assert dict(preview.payload) == {"profile_url": "https://instagram.com/cafe", "query": "cafe", "location": "Tehran"}
+    assert INSTAGRAM.execute(request)[1] == "disabled_actor_contract_unverified"
+
+
+@pytest.mark.parametrize("raw, expected", [("SUCCEEDED", "succeeded"), ("FAILED", "failed"), (None, "malformed_status"), ("wat", "unknown_status")])
+def test_actor_status_is_stable(raw, expected):
+    assert INSTAGRAM.status(raw) == expected
 
 
 def test_mapping_allows_only_public_https_profile_fields():

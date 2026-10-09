@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Mapping
 from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
@@ -75,6 +75,31 @@ class TikTokProfileInput(SocialProfileInput):
 
 
 @dataclass(frozen=True)
+class ActorContract:
+    actor: str
+    platform: str
+    enabled: bool = False
+    contract_status: str = "unverified"
+    pricing_status: str = "not_verified"
+    execution_policy: str = "disabled_no_paid_calls"
+    request_fields: tuple[str, ...] = ("profile_url", "query", "location")
+    output_fields: tuple[str, ...] = (
+        "url", "title", "bio", "location", "website", "contact_links", "metadata"
+    )
+    excluded_fields: tuple[str, ...] = (
+        "email", "owner", "reviewer", "commenter", "comments", "audience", "viewer"
+    )
+
+
+@dataclass(frozen=True)
+class ActorRequest:
+    actor: str
+    payload: Mapping[str, object]
+    executable: bool = False
+    reason: str = "actor_contract_unverified"
+
+
+@dataclass(frozen=True)
 class SocialProfileObservation:
     platform: str
     url: str
@@ -93,6 +118,34 @@ class DisabledSocialProfileConnector:
     def __init__(self, platform: str, actor: str):
         self.platform = platform
         self.actor = actor
+        self.contract = ActorContract(actor=actor, platform=platform)
+
+    def build_request(self, request: SocialProfileInput) -> ActorRequest:
+        """Build a non-executable, privacy-filtered request preview.
+
+        Actor input schemas and pricing are intentionally unverified; this method
+        never authorizes or performs a paid call.
+        """
+        payload = {"profile_url": str(request.profile_url)}
+        if request.query is not None:
+            payload["query"] = request.query
+        if request.location is not None:
+            payload["location"] = request.location
+        return ActorRequest(self.actor, payload, executable=False)
+
+    def status(self, raw_status: object) -> str:
+        """Return a stable status without exposing provider response details."""
+        if not isinstance(raw_status, str):
+            return "malformed_status"
+        normalized = raw_status.upper()
+        return {"READY": "pending", "RUNNING": "running", "SUCCEEDED": "succeeded",
+                "FAILED": "failed", "ABORTED": "aborted", "TIMED-OUT": "timed_out"}.get(
+            normalized, "unknown_status"
+        )
+
+    def execute(self, request: SocialProfileInput) -> tuple[None, str]:
+        del request
+        return None, "disabled_actor_contract_unverified"
 
     def map_public_profile(self, item: dict[str, Any]) -> SocialProfileObservation | None:
         """Map a provider record without retaining private, commenter, or audience data."""
@@ -129,3 +182,5 @@ class DisabledSocialProfileConnector:
 INSTAGRAM = DisabledSocialProfileConnector("instagram", "apify~instagram-scraper")
 TIKTOK = DisabledSocialProfileConnector("tiktok", "clockworks~tiktok-scraper")
 YOUTUBE = DisabledSocialProfileConnector("youtube", "streamers~youtube-scraper")
+
+SOCIAL_ACTOR_ADAPTERS = {"instagram": INSTAGRAM, "tiktok": TIKTOK, "youtube": YOUTUBE}

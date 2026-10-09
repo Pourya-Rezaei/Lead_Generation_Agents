@@ -71,6 +71,20 @@ Candidateهای پروفایل فقط به کسب‌وکار مشخص با `lead
 
 Mapping فقط URL عمومی allowlist‌شده، عنوان/handle، bio حرفه‌ای، location، لینک رسمی و metadata محدود پلتفرم (مانند followers/subscribers/videoCount) را نگه می‌دارد. email، owner، reviewer، commenter، comments، audience و viewer data هرگز به خروجی وارد نمی‌شوند. `map_public_profile_safe` به‌جای exception یا دادهٔ خام، کدهای پایدار `malformed_record` و `private_profile` می‌دهد. فعال‌سازی آینده نیازمند تأیید قرارداد Actor، schema/pricing و privacy خواهد بود.
 
+### آداپتورهای سه Actor اجتماعی
+
+برای `apify~instagram-scraper`، `clockworks~tiktok-scraper` و
+`streamers~youtube-scraper` آداپتورهای contract-gated در
+`src/connectors/social_profiles.py` وجود دارند. هر آداپتور request preview
+فیلترشده (فقط `profile_url` و در صورت وجود `query`/`location`) و allowlist خروجی
+عمومی دارد، اما `enabled=False`، `contract_status=unverified` و
+`pricing_status=not_verified` باقی می‌ماند. این وضعیت عمداً بر اساس نبود تأیید
+کافی هم‌زمانِ schema عمومی، هزینه و privacy است؛ بنابراین preview قابل اجرا
+نیست و هیچ تماس پولی انجام نمی‌شود. وضعیت‌های provider به کدهای پایدار و امن
+تبدیل می‌شوند. فیلدهای email، owner، reviewer، commenter/comments، audience و
+viewer همیشه خارج از قرارداد خروجی هستند. فعال‌سازی فقط پس از تأیید مستند
+schema، قیمت و مجوز privacy مجاز است.
+
 ## خطاهای مهم
 
 - `401/403`: token نامعتبر، revoke شده یا بدون دسترسی؛ token در پیام خطا نمایش داده نمی‌شود
