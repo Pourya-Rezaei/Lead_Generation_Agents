@@ -18,6 +18,21 @@ def test_social_connectors_are_disabled_by_default():
         assert connector.contract.contract_status == "unverified"
         assert connector.contract.pricing_status == "not_verified"
         assert connector.contract.execution_policy == "disabled_no_paid_calls"
+        assert connector.contract.gate_report.status == "blocked"
+        assert connector.contract.gate_report.failed_gates == ("schema",)
+
+
+def test_actor_metadata_has_official_pricing_references_without_authorizing_calls():
+    expected = {
+        INSTAGRAM: ("https://apify.com/apify/instagram-scraper", "$1.50 / 1,000 results"),
+        TIKTOK: ("https://apify.com/clockworks/tiktok-scraper", "$1.70 / 1,000 results"),
+        YOUTUBE: ("https://apify.com/streamers/youtube-scraper", "$2.40 / 1,000 videos"),
+    }
+    for connector, (url, pricing) in expected.items():
+        assert connector.contract.docs_url == url
+        assert connector.contract.pricing_summary == pricing
+        assert connector.contract.schema_verified is False
+        assert connector.contract.gate_report.passed is False
 
 
 def test_actor_request_is_safe_preview_and_never_executable():

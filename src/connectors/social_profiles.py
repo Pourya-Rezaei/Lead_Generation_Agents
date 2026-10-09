@@ -6,6 +6,8 @@ from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
+from ..contract_gate import ContractGateReport
+
 
 PLATFORM_HOSTS = {
     "instagram": {"instagram.com"},
@@ -78,10 +80,19 @@ class TikTokProfileInput(SocialProfileInput):
 class ActorContract:
     actor: str
     platform: str
+    docs_url: str
+    pricing_summary: str
+    schema_verified: bool = False
+    privacy_verified: bool = True
+    pricing_verified: bool = True
     enabled: bool = False
     contract_status: str = "unverified"
     pricing_status: str = "not_verified"
     execution_policy: str = "disabled_no_paid_calls"
+
+    @property
+    def gate_report(self) -> ContractGateReport:
+        return ContractGateReport(self.schema_verified, self.privacy_verified, self.pricing_verified)
     request_fields: tuple[str, ...] = ("profile_url", "query", "location")
     output_fields: tuple[str, ...] = (
         "url", "title", "bio", "location", "website", "contact_links", "metadata"
@@ -115,10 +126,14 @@ class SocialProfileObservation:
 class DisabledSocialProfileConnector:
     enabled = False
 
-    def __init__(self, platform: str, actor: str):
+    def __init__(self, platform: str, actor: str, docs_url: str, pricing_summary: str):
         self.platform = platform
         self.actor = actor
-        self.contract = ActorContract(actor=actor, platform=platform)
+        self.contract = ActorContract(
+            actor=actor, platform=platform, docs_url=docs_url, pricing_summary=pricing_summary
+        )
+        # A reference price is not authorization: schema verification is still required.
+        self.enabled = self.contract.gate_report.passed
 
     def build_request(self, request: SocialProfileInput) -> ActorRequest:
         """Build a non-executable, privacy-filtered request preview.
@@ -179,8 +194,14 @@ class DisabledSocialProfileConnector:
         return (observation, None) if observation else (None, "malformed_record")
 
 
-INSTAGRAM = DisabledSocialProfileConnector("instagram", "apify~instagram-scraper")
-TIKTOK = DisabledSocialProfileConnector("tiktok", "clockworks~tiktok-scraper")
-YOUTUBE = DisabledSocialProfileConnector("youtube", "streamers~youtube-scraper")
+INSTAGRAM = DisabledSocialProfileConnector(
+    "instagram", "apify~instagram-scraper", "https://apify.com/apify/instagram-scraper", "$1.50 / 1,000 results"
+)
+TIKTOK = DisabledSocialProfileConnector(
+    "tiktok", "clockworks~tiktok-scraper", "https://apify.com/clockworks/tiktok-scraper", "$1.70 / 1,000 results"
+)
+YOUTUBE = DisabledSocialProfileConnector(
+    "youtube", "streamers~youtube-scraper", "https://apify.com/streamers/youtube-scraper", "$2.40 / 1,000 videos"
+)
 
 SOCIAL_ACTOR_ADAPTERS = {"instagram": INSTAGRAM, "tiktok": TIKTOK, "youtube": YOUTUBE}

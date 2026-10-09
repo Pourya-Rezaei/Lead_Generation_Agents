@@ -61,6 +61,18 @@ Candidateهای پروفایل فقط به کسب‌وکار مشخص با `lead
 
 این API به‌صورت additive اضافه شده و مسیر قدیمی `search(..., source="places")` بدون تغییر کار می‌کند. descriptor فقط metadata محلی است و هیچ تماس پولی با Apify ایجاد نمی‌کند.
 
+### Social Actor contract gates (Phase E)
+
+Official Apify Store references have been recorded for pricing only; they do not authorize execution:
+
+| Platform | Actor | Official page | Published price | Input schema |
+|---|---|---|---|---|
+| Instagram | `apify~instagram-scraper` | https://apify.com/apify/instagram-scraper | $1.50 / 1,000 results | **Unverified** |
+| TikTok | `clockworks~tiktok-scraper` | https://apify.com/clockworks/tiktok-scraper | $1.70 / 1,000 results | **Unverified** |
+| YouTube | `streamers~youtube-scraper` | https://apify.com/streamers/youtube-scraper | $2.40 / 1,000 videos | **Unverified** |
+
+`ContractGateReport` requires schema, privacy, and pricing gates to pass. Since the exact input schemas have not been confirmed against the Actor documentation, all three social Actors remain disabled and no paid run is possible. Prices are summaries from the official pages and may change; they are not a budget authorization. Privacy gates exclude person, reviewer, commenter, audience, and viewer data.
+
 ### Social Web API (Phase E)
 
 مسیر `POST /api/social-searches` درخواست عمومی اجتماعی را با مدل `SocialSearchRequest` می‌پذیرد: یا `query`/`location` یا `profile_urls` (نه هر دو) و فقط URLهای HTTPS. پیش از هر اجرای احتمالی، نام sourceها از capability registry انتخاب می‌شود. Instagram، TikTok و YouTube عمداً disabled هستند؛ بنابراین endpoint با خطای 409 امن برمی‌گردد و هیچ Actor یا تماس شبکه‌ای ایجاد نمی‌کند. این مسیر فقط برای قرارداد و اعتبارسنجی آماده است و token یا دادهٔ شخصی را نمی‌پذیرد.

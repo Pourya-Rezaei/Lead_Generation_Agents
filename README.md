@@ -41,3 +41,7 @@ Social search contract
 `SocialSearchService` is a provider-independent, API/CLI-facing validation boundary. A request selects one or more declared social sources and uses either explicit HTTPS `profile_urls` or keyword mode (`query`, optionally `location`), never both. Source capability descriptors are checked before execution; Instagram, TikTok, YouTube, and web Actors remain disabled, so the service refuses before any network call. Platform-specific `PlatformSearchResult` observations are returned unchanged when a test or future enabled executor is supplied. No paid Actor is enabled by this phase.
 
 No secrets are included in this repository.
+
+### Social Actor contract status (Phase E)
+
+Instagram, TikTok, and YouTube remain disabled. Official Apify Store metadata is recorded for review only: Instagram is listed at **$1.50/1,000 results**, TikTok at **$1.70/1,000 results**, and YouTube at **$2.40/1,000 videos**. The exact input schemas are **unverified**, so the schema, privacy, and pricing contract gates do not authorize any paid Actor. See `docs/06-apify-integration.md` for the official URLs and gate model.
