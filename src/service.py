@@ -52,6 +52,7 @@ class SearchLeadsService:
         source: str = "places",
         limit: int = 20,
         campaign_id: str | None = None,
+        provider_run_id: str | None = None,
     ) -> SearchResult:
         if not query.strip() or not location.strip():
             raise ValueError("query and location must not be empty")
@@ -71,7 +72,11 @@ class SearchLeadsService:
             if source in {"places", "google_search"} and not self.settings.apify_api_token:
                 raise ValueError(f"APIFY_API_TOKEN is required for {source}")
             connector = self.registry.create(source, self.settings)
-            result = connector.search(query, location, limit)
+            resume = getattr(connector, "search_existing_run", None)
+            if provider_run_id and callable(resume):
+                result = resume(provider_run_id, query, limit)
+            else:
+                result = connector.search(query, location, limit)
             metadata = getattr(connector, "failure_metadata", {})
             self.last_provider_run_id = (
                 metadata.get("provider_run_id")

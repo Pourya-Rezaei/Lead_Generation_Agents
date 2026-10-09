@@ -14,7 +14,14 @@ def places_handler(service: SearchLeadsService) -> Callable[[dict[str, Any]], An
         source = str(request.get("source", "places"))
         limit = int(request.get("limit", 20))
         campaign_id = request.get("campaign_id")
-        service.search(query, location, source, limit, campaign_id)
+        provider_run_id = request.get("provider_run_id")
+        if provider_run_id:
+            service.search(
+                query, location, source, limit, campaign_id,
+                provider_run_id=provider_run_id,
+            )
+        else:
+            service.search(query, location, source, limit, campaign_id)
         provider_run_id = getattr(service, "last_provider_run_id", None)
         if isinstance(provider_run_id, str) and provider_run_id:
             return {"completed_steps": [source], "provider_run_id": provider_run_id}
