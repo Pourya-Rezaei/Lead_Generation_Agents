@@ -113,6 +113,12 @@ Web smoke routes   -> /, /campaigns, /search و /static/styles.css موفق
 - تعیین سیاست retention مطابق نیاز واقعی کسب‌وکار و قوانین محل اجرا.
 - ایجاد migration جدید به‌صورت ترتیبی و بدون شکستن JSON/CSV پیش‌فرض.
 
+## فاز A: مشاهدات پلتفرمی مستقل
+
+- قرارداد backward-compatible `PlatformObservation` و `PlatformSearchResult` برای نتایج مستقل اجتماعی اضافه شد؛ فیلدهای مشترک با metadata و contact links مخصوص پلتفرم تفکیک شده‌اند.
+- normalization و allowlist قطعی برای URL پروفایل و لینک‌های تماس حرفه‌ای عمومی Instagram، YouTube و TikTok اضافه شد.
+- Connectorهای اجتماعی و Actorهای پولی همچنان disabled-by-default هستند و در این تغییر هیچ اجرای شبکه‌ای فعال نشده است.
+
 ## وضعیت فعلی پس از Campaign و ثبت خطا
 
 - Campaignها با جدول‌های `campaigns` و `campaign_leads` اضافه شدند.

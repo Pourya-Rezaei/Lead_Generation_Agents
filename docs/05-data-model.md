@@ -39,6 +39,12 @@ matching محافظه‌کارانه است: source ID یکسان merge، domain
 
 `src/quality/metrics.py` completeness را جدا از score قدیمی محاسبه می‌کند. export CLI فیلترهای اختیاری `--min-completeness`، `--has-phone` و `--has-website` دارد؛ بدون این flags قرارداد JSON/CSV قبلی تغییر نمی‌کند. جدول `lead_merge_audit` دلیل، confidence، زمان و snapshot رکورد ادغام‌شده را نگه می‌دارد تا merge قابل audit و undo باشد.
 
+## مشاهدات پلتفرمی مستقل
+
+`PlatformObservation` در `src/results.py` برای نتایج اختیاری و مستقل Instagram، YouTube و TikTok استفاده می‌شود. فیلدهای مشترک کسب‌وکار (`name`، توضیح، location، website و phone) کنار `metadata` مخصوص پلتفرم و `contact_links` نگه‌داری می‌شوند؛ بنابراین فعال‌سازی یا شکست یک جست‌وجوی پلتفرمی، نتیجه Places را تغییر نمی‌دهد. Connectorهای اجتماعی فعلاً disabled-by-default هستند و هیچ Actor پولی اجرا نمی‌شود.
+
+لینک‌های تماس با allowlist قطعی فقط HTTPS و دامنه‌های حرفه‌ای شناخته‌شده (خود پلتفرم، WhatsApp/Telegram) پذیرفته می‌شوند؛ ایمیل، نام مالک و فیلدهای شخصی حذف می‌شوند. URL پروفایل نیز باید به دامنه همان پلتفرم تعلق داشته باشد.
+
 ## حریم خصوصی
 
 تنها داده عمومی و حرفه‌ای کسب‌وکار مجاز است. اطلاعات خصوصی افراد، حدس مالکیت و داده حساس نباید ذخیره یا enrich شود.

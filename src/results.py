@@ -36,6 +36,32 @@ def map_apify_status(status: str) -> RunStatus:
         raise ValueError(f"Unknown Apify run status: {status!r}") from exc
 
 
+class PlatformObservation(BaseModel):
+    """Backward-compatible platform result with shared business fields and safe metadata."""
+    platform: str
+    profile_url: str
+    name: str
+    description: str | None = None
+    location: str | None = None
+    website: str | None = None
+    phone: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    contact_links: tuple[str, ...] = ()
+    source: str = ""
+    source_record_id: str | None = None
+    confidence: float | None = Field(default=None, ge=0, le=1)
+
+
+class PlatformSearchResult(BaseModel):
+    observations: list[PlatformObservation] = Field(default_factory=list)
+    platform: str
+    status: RunStatus
+    warnings: list[str] = Field(default_factory=list)
+    run_id: str | None = None
+    started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    finished_at: datetime | None = None
+
+
 class SearchResult(BaseModel):
     leads: list[Lead] = Field(default_factory=list)
     source: str
