@@ -13,3 +13,8 @@ def test_google_search_maps_public_result_to_lead():
     assert result.status is RunStatus.SUCCEEDED
     assert result.leads[0].website == "https://cafe.example"
     assert result.raw_records == [{"title": "Cafe", "url": "https://cafe.example", "description": "public"}]
+    client.run_actor.assert_called_once_with(
+        "apify~google-search-scraper",
+        {"queries": ["cafe Tehran"], "maxPagesPerQuery": 1},
+        wait_for_finish=60,
+    )
