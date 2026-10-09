@@ -61,9 +61,11 @@ Candidateهای پروفایل فقط به کسب‌وکار مشخص با `lead
 
 این API به‌صورت additive اضافه شده و مسیر قدیمی `search(..., source="places")` بدون تغییر کار می‌کند. descriptor فقط metadata محلی است و هیچ تماس پولی با Apify ایجاد نمی‌کند.
 
-## منابع اجتماعی: قرارداد آماده، اجرا غیرفعال
+## منابع اجتماعی: قرارداد فاز E، اجرا غیرفعال
 
-قرارداد mapping مشترک برای Instagram، TikTok و YouTube در `src/connectors/social_profiles.py` آماده است. فقط URL عمومی HTTPS، عنوان/handle، bio حرفه‌ای و لینک رسمی احتمالی نگه داشته می‌شوند؛ email، comment، reviewer، audience و دادهٔ شخصی حذف می‌شوند. هر سه connector تا contract gate رسمی Actor، بررسی schema/pricing و تأیید privacy، `disabled` باقی می‌مانند.
+لایهٔ contract-gated برای Instagram، TikTok و YouTube در `src/connectors/social_profiles.py` آماده است. هر پلتفرم مدل ورودی مستقل (`InstagramProfileInput`، `YouTubeProfileInput` و `TikTokProfileInput`) دارد؛ مدل‌ها فقط URL پروفایل HTTPS، query و location عمومی را می‌پذیرند و فیلدهای اضافی را رد می‌کنند. Connectorها عمداً `enabled=False` هستند و هیچ Actor پولی را فراخوانی نمی‌کنند.
+
+Mapping فقط URL عمومی allowlist‌شده، عنوان/handle، bio حرفه‌ای، location، لینک رسمی و metadata محدود پلتفرم (مانند followers/subscribers/videoCount) را نگه می‌دارد. email، owner، reviewer، commenter، comments، audience و viewer data هرگز به خروجی وارد نمی‌شوند. `map_public_profile_safe` به‌جای exception یا دادهٔ خام، کدهای پایدار `malformed_record` و `private_profile` می‌دهد. فعال‌سازی آینده نیازمند تأیید قرارداد Actor، schema/pricing و privacy خواهد بود.
 
 ## خطاهای مهم
 

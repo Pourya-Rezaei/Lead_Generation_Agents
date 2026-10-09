@@ -1,4 +1,14 @@
-from src.connectors.social_profiles import INSTAGRAM, TIKTOK, YOUTUBE, normalize_contact_links
+import pytest
+from pydantic import ValidationError
+from src.connectors.social_profiles import (
+    INSTAGRAM,
+    TIKTOK,
+    YOUTUBE,
+    InstagramProfileInput,
+    TikTokProfileInput,
+    YouTubeProfileInput,
+    normalize_contact_links,
+)
 from src.results import PlatformObservation, PlatformSearchResult, RunStatus
 
 
@@ -39,3 +49,31 @@ def test_contact_allowlist_and_platform_result_contract():
     observation = PlatformObservation(platform="youtube", profile_url="https://youtube.com/@cafe", name="Cafe", metadata={"subscribers": 42}, contact_links=("https://wa.me/1",), source="youtube")
     result = PlatformSearchResult(platform="youtube", status=RunStatus.SUCCEEDED, observations=[observation])
     assert result.observations[0].metadata["subscribers"] == 42
+
+
+def test_platform_inputs_are_independent_and_https_contract_gated():
+    assert InstagramProfileInput(profile_url="https://instagram.com/cafe").platform == "instagram"
+    assert YouTubeProfileInput(profile_url="https://youtube.com/@cafe").platform == "youtube"
+    assert TikTokProfileInput(profile_url="https://tiktok.com/@cafe").platform == "tiktok"
+    with pytest.raises(ValidationError):
+        InstagramProfileInput(profile_url="http://instagram.com/cafe")
+    with pytest.raises(ValidationError):
+        TikTokProfileInput(profile_url="https://tiktok.com/@cafe", audience={})
+
+
+@pytest.mark.parametrize("item", [None, [], {"profileUrl": "not-a-url", "username": "x"}])
+def test_safe_mapping_classifies_malformed_records(item):
+    observation, error = INSTAGRAM.map_public_profile_safe(item)
+    assert observation is None
+    assert error == "malformed_record"
+
+
+def test_safe_mapping_rejects_private_and_drops_commenter_audience_data():
+    observation, error = INSTAGRAM.map_public_profile_safe({"profileUrl": "https://instagram.com/cafe", "username": "cafe", "private": True})
+    assert observation is None and error == "private_profile"
+    observation, error = INSTAGRAM.map_public_profile_safe({
+        "profileUrl": "https://instagram.com/cafe", "username": "cafe",
+        "commenters": [{"username": "person"}], "audience": {"age": 20}, "followers": 10,
+    })
+    assert error is None and observation is not None
+    assert dict(observation.metadata) == {"followers": "10"}
