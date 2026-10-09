@@ -36,4 +36,8 @@ Then open <http://127.0.0.1:8000>. The MVP supports Campaign management, synchro
 
 A search without `--campaign` is stored in the default `general` campaign. Export without `--campaign` includes all unique leads; adding a campaign ID limits the export to leads associated with that campaign. Campaigns share canonical lead records, so a business found in multiple campaigns is not duplicated globally.
 
+Social search contract
+
+`SocialSearchService` is a provider-independent, API/CLI-facing validation boundary. A request selects one or more declared social sources and uses either explicit HTTPS `profile_urls` or keyword mode (`query`, optionally `location`), never both. Source capability descriptors are checked before execution; Instagram, TikTok, YouTube, and web Actors remain disabled, so the service refuses before any network call. Platform-specific `PlatformSearchResult` observations are returned unchanged when a test or future enabled executor is supplied. No paid Actor is enabled by this phase.
+
 No secrets are included in this repository.
