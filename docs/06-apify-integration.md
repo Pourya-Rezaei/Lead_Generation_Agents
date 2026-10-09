@@ -61,6 +61,10 @@ Candidateهای پروفایل فقط به کسب‌وکار مشخص با `lead
 
 این API به‌صورت additive اضافه شده و مسیر قدیمی `search(..., source="places")` بدون تغییر کار می‌کند. descriptor فقط metadata محلی است و هیچ تماس پولی با Apify ایجاد نمی‌کند.
 
+### Social Web API (Phase E)
+
+مسیر `POST /api/social-searches` درخواست عمومی اجتماعی را با مدل `SocialSearchRequest` می‌پذیرد: یا `query`/`location` یا `profile_urls` (نه هر دو) و فقط URLهای HTTPS. پیش از هر اجرای احتمالی، نام sourceها از capability registry انتخاب می‌شود. Instagram، TikTok و YouTube عمداً disabled هستند؛ بنابراین endpoint با خطای 409 امن برمی‌گردد و هیچ Actor یا تماس شبکه‌ای ایجاد نمی‌کند. این مسیر فقط برای قرارداد و اعتبارسنجی آماده است و token یا دادهٔ شخصی را نمی‌پذیرد.
+
 ## منابع اجتماعی: قرارداد فاز E، اجرا غیرفعال
 
 لایهٔ contract-gated برای Instagram، TikTok و YouTube در `src/connectors/social_profiles.py` آماده است. هر پلتفرم مدل ورودی مستقل (`InstagramProfileInput`، `YouTubeProfileInput` و `TikTokProfileInput`) دارد؛ مدل‌ها فقط URL پروفایل HTTPS، query و location عمومی را می‌پذیرند و فیلدهای اضافی را رد می‌کنند. Connectorها عمداً `enabled=False` هستند و هیچ Actor پولی را فراخوانی نمی‌کنند.

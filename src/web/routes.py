@@ -10,9 +10,26 @@ from ..errors import (
     ApifyTransientError,
 )
 from ..service import _safe_error_summary
+from ..registry import DisabledSourceError
+from ..social_service import SocialSearchRequest
 from .schemas import CampaignForm
 
 router = APIRouter()
+
+
+@router.post("/api/social-searches")
+def api_submit_social_search(request: Request, payload: SocialSearchRequest):
+    """Validate a public social request without activating disabled Actors."""
+    try:
+        selected = request.app.state.social_service.validate(payload)
+        results = request.app.state.social_service.search(payload)
+    except DisabledSourceError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {
+        "mode": payload.mode,
+        "sources": [capability.name for capability in selected],
+        "results": results,
+    }
 
 
 @router.post("/api/jobs")

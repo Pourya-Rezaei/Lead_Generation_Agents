@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from src.errors import ApifyCredentialError
 from src.results import RunStatus, SearchResult
+from src.social_service import SocialSearchService
 
 from src.config import Settings
 from src.storage import LeadStore
@@ -100,6 +101,24 @@ def test_search_route_does_not_leak_provider_error(fake_service):
     assert response.status_code == 502
     assert "token-secret" not in response.text
     assert "Authorization" not in response.text
+
+
+def test_social_api_rejects_disabled_source_without_executor_call(tmp_path):
+    database = str(tmp_path / "social.db")
+    store = LeadStore(database)
+    executor = Mock()
+    app = create_app(Settings(database_path=database), store=store, social_service=SocialSearchService(executor=executor))
+    response = TestClient(app).post("/api/social-searches", json={"sources": ["instagram"], "query": "cafe"})
+    assert response.status_code == 409
+    assert "disabled" in response.json()["detail"]
+    executor.assert_not_called()
+
+
+def test_social_api_validates_explicit_https_profiles(tmp_path):
+    database = str(tmp_path / "social-valid.db")
+    app = create_app(Settings(database_path=database), social_service=SocialSearchService())
+    response = TestClient(app).post("/api/social-searches", json={"sources": ["instagram"], "profile_urls": ["http://instagram.com/cafe"]})
+    assert response.status_code == 422
 
 
 def test_search_route_rejects_invalid_source(fake_service):
