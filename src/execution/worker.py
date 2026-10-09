@@ -47,6 +47,12 @@ class JobWorker:
                 provider_run_id = result.get("provider_run_id")
                 if isinstance(provider_run_id, str) and provider_run_id:
                     self.jobs.update_provider_run(job.job_id, self.worker_id, job.fencing_token, provider_run_id, "SUCCEEDED")
+                checkpoint = result.get("checkpoint")
+                if isinstance(checkpoint, dict):
+                    self.jobs.update_progress(
+                        job.job_id, self.worker_id, job.fencing_token, steps,
+                        checkpoint=checkpoint,
+                    )
             else:
                 steps = list(result)
             cache.put(job.request, {"completed_steps": steps})

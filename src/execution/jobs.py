@@ -69,5 +69,18 @@ class JobRepository:
             (run_id, state, datetime.now(UTC).isoformat(), job_id, worker_id, fencing_token),
         )
 
-    def update_progress(self, job_id: str, worker_id: str, fencing_token: int, completed_steps: list[str]) -> None:
-        self.connection.execute("UPDATE jobs SET progress = ?, lease_until = ?, updated_at = ? WHERE job_id = ? AND state = 'running' AND worker_id = ? AND fencing_token = ?", (json.dumps({"completed_steps": completed_steps}), (datetime.now(UTC) + timedelta(seconds=60)).isoformat(), datetime.now(UTC).isoformat(), job_id, worker_id, fencing_token))
+    def update_progress(
+        self,
+        job_id: str,
+        worker_id: str,
+        fencing_token: int,
+        completed_steps: list[str],
+        **details: Any,
+    ) -> None:
+        progress = {"completed_steps": completed_steps, **details}
+        self.connection.execute(
+            "UPDATE jobs SET progress = ?, lease_until = ?, updated_at = ? "
+            "WHERE job_id = ? AND state = 'running' AND worker_id = ? AND fencing_token = ?",
+            (json.dumps(progress), (datetime.now(UTC) + timedelta(seconds=60)).isoformat(),
+             datetime.now(UTC).isoformat(), job_id, worker_id, fencing_token),
+        )
