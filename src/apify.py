@@ -139,6 +139,25 @@ class ApifyClient:
             raise ApifyMalformedResponseError("Apify dataset response must be a list of objects")
         return payload
 
+    def iter_dataset_items(
+        self, dataset_id: str, *, page_size: int = 1000, max_items: int | None = None
+    ) -> Any:
+        """Yield dataset pages in order for resumable processing."""
+        if page_size < 1 or (max_items is not None and max_items < 0):
+            raise ValueError("page_size must be positive and max_items non-negative")
+        offset = 0
+        yielded = 0
+        while max_items is None or yielded < max_items:
+            limit = page_size if max_items is None else min(page_size, max_items - yielded)
+            page = self.dataset_items_page(dataset_id, offset=offset, limit=limit)
+            if not page:
+                return
+            yield page
+            yielded += len(page)
+            offset += len(page)
+            if len(page) < limit:
+                return
+
     def dataset_items_page(
         self, dataset_id: str, *, offset: int = 0, limit: int = 1000
     ) -> list[dict[str, Any]]:
