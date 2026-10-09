@@ -10,7 +10,7 @@ from .errors import (
     CampaignNotFoundError,
     SearchAttemptPersistenceError,
 )
-from .registry import ConnectorRegistry
+from .registry import ConnectorRegistry, SourceCapability
 from .results import SearchResult
 from .storage import LeadStore
 
@@ -44,6 +44,14 @@ class SearchLeadsService:
         self.store = store or LeadStore(settings.database_path)
         self.registry = registry or ConnectorRegistry()
         self.last_provider_run_id: str | None = None
+
+    def source_capabilities(self) -> tuple[SourceCapability, ...]:
+        """Describe selectable sources without constructing or running connectors."""
+        return self.registry.capabilities()
+
+    def select_sources(self, sources: list[str] | tuple[str, ...]) -> tuple[SourceCapability, ...]:
+        """Validate a multi-source selection before any Actor can be activated."""
+        return self.registry.select_sources(sources)
 
     def search(
         self,

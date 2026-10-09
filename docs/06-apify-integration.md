@@ -55,6 +55,12 @@ Adapter `google_search` با Actor `apify~google-search-scraper` اضافه شد
 
 Candidateهای پروفایل فقط به کسب‌وکار مشخص با `lead_id` وصل می‌شوند. شباهت نام به‌تنهایی هرگز `confirmed` نیست؛ `confirmed` به لینک first-party و شواهد سازگار نیاز دارد. بدون لینک first-party، شواهد حرفه‌ای سازگار حداکثر `probable` می‌شود و تعارض‌ها `unverified` باقی می‌مانند. فقط پلتفرم‌های allowlist و URLهای HTTPS ذخیره می‌شوند و رابطهٔ ثبت‌شده «پروفایل کسب‌وکار» است، نه مالک یا شخص. هر review با وضعیت قبلی، وضعیت جدید، دلیل و زمان در `profile_review_audit` ثبت می‌شود.
 
+## Capability descriptor و انتخاب منبع
+
+`ConnectorRegistry.capabilities()` و `SearchLeadsService.source_capabilities()` یک descriptor پایدار برای هر منبع برمی‌گردانند: نام، پلتفرم، Actor، وضعیت فعال بودن و توضیح. برای انتخاب یک یا چند منبع از `select_sources([...])` استفاده کنید؛ این متد همهٔ نام‌ها را ابتدا اعتبارسنجی می‌کند و تا موفقیت کامل هیچ Connector یا Actorای را فعال نمی‌کند. انتخاب منبع غیرفعال (از جمله social) با `DisabledSourceError` و پیام امن برمی‌گردد. خروجی هر Connector همچنان `SearchResult.source` اختصاصی خود را حفظ می‌کند و نتایج پلتفرم‌ها با هم مخلوط نمی‌شوند.
+
+این API به‌صورت additive اضافه شده و مسیر قدیمی `search(..., source="places")` بدون تغییر کار می‌کند. descriptor فقط metadata محلی است و هیچ تماس پولی با Apify ایجاد نمی‌کند.
+
 ## منابع اجتماعی: قرارداد آماده، اجرا غیرفعال
 
 قرارداد mapping مشترک برای Instagram، TikTok و YouTube در `src/connectors/social_profiles.py` آماده است. فقط URL عمومی HTTPS، عنوان/handle، bio حرفه‌ای و لینک رسمی احتمالی نگه داشته می‌شوند؛ email، comment، reviewer، audience و دادهٔ شخصی حذف می‌شوند. هر سه connector تا contract gate رسمی Actor، بررسی schema/pricing و تأیید privacy، `disabled` باقی می‌مانند.
