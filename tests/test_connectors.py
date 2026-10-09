@@ -10,6 +10,11 @@ class FakeApifyClient:
         self.dataset = [] if dataset is None else dataset
         self.actor_calls = []
         self.dataset_calls = []
+        self.resume_calls = []
+
+    def wait_for_run(self, run_id, *, timeout=300, poll_interval=2):
+        self.resume_calls.append(run_id)
+        return self.run
 
     def run_actor(self, actor, input_data, *, wait_for_finish=60):
         self.actor_calls.append((actor, input_data, wait_for_finish))
@@ -23,6 +28,20 @@ class FakeApifyClient:
 def connector(run, dataset=None):
     client = FakeApifyClient(run, dataset)
     return ApifyPlacesConnector(client=client), client
+
+
+def test_resumes_existing_run_without_starting_actor():
+    places, client = connector(
+        {"id": "run-previous", "defaultDatasetId": "ds-previous", "status": "SUCCEEDED"},
+        [{"title": "Cafe", "address": "A St"}],
+    )
+
+    result = places.search_existing_run("run-previous", "cafe", limit=1)
+
+    assert result.status is RunStatus.SUCCEEDED
+    assert client.resume_calls == ["run-previous"]
+    assert client.actor_calls == []
+    assert client.dataset_calls == ["ds-previous"]
 
 
 def test_sends_exact_actor_input_and_returns_search_result():
