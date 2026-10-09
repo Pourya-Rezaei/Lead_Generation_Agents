@@ -9,10 +9,14 @@ from ..enrichment import ProfileCandidate
 
 
 class ProfileRepository:
+    allowed_platforms = frozenset({"instagram", "tiktok", "youtube", "website"})
+
     def __init__(self, connection: sqlite3.Connection):
         self.connection = connection
 
     def save(self, lead_id: str, platform: str, candidate: ProfileCandidate) -> str:
+        if platform not in self.allowed_platforms or not candidate.url.startswith("https://"):
+            raise ValueError("unsupported profile candidate")
         candidate_id = uuid.uuid4().hex
         self.connection.execute(
             "INSERT INTO profile_candidates(candidate_id, lead_id, platform, url, status, confidence, evidence, review_reason, reviewed_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?) ON CONFLICT(lead_id, platform, url) DO UPDATE SET confidence = excluded.confidence, evidence = excluded.evidence",

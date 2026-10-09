@@ -67,6 +67,22 @@ def map_search_candidates(request: EnrichmentRequest, items: list[dict[str, Any]
     return EnrichmentResult(request.lead_id, request.query, tuple(candidates), discarded)
 
 
+def match_profile_candidate(
+    lead: Lead,
+    candidate: ProfileCandidate,
+    *,
+    first_party_link: bool = False,
+    consistent_business_evidence: bool = False,
+) -> ProfileCandidate:
+    """Apply conservative business-profile matching; never infer an owner."""
+    evidence = tuple(candidate.evidence)
+    if first_party_link and consistent_business_evidence:
+        return ProfileCandidate(candidate.url, candidate.title, evidence + ("first-party-link",), max(candidate.confidence, 0.98), "confirmed")
+    if consistent_business_evidence:
+        return ProfileCandidate(candidate.url, candidate.title, evidence + ("business-evidence",), max(candidate.confidence, 0.75), "probable")
+    return ProfileCandidate(candidate.url, candidate.title, evidence, min(candidate.confidence, 0.5), "unverified")
+
+
 def enrich_lead(lead: Lead, candidates: list[ProfileCandidate]) -> list[ProfileCandidate]:
     domain = (urlsplit(str(lead.website)).hostname or "").removeprefix("www.") if lead.website else ""
     result: list[ProfileCandidate] = []

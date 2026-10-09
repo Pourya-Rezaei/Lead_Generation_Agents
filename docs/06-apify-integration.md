@@ -51,6 +51,10 @@ Adapter `google_search` با Actor `apify~google-search-scraper` اضافه شد
 
 نتایج Google Search در enrichment فقط به Lead مشخص‌شده با `lead_id` attach می‌شوند و با discovery مستقل کسب‌وکار مخلوط نمی‌شوند. query به‌صورت deterministic از نام کسب‌وکار و شهر ساخته می‌شود. فقط URLهای HTTPS با title و نشانهٔ شهر پذیرفته می‌شوند؛ نتیجهٔ بدون تطبیق شهر یا رکورد malformed حذف و شمارش می‌شود. تطبیق دامنهٔ رسمی موجود، candidate را فقط به `probable` ارتقا می‌دهد؛ directory و snippet هرگز وب‌سایت رسمی یا مالکیت را تأیید نمی‌کنند. crawl مستقیم سایت و email حدسی در این فاز انجام نمی‌شود.
 
+## تطبیق و review پروفایل کسب‌وکار
+
+Candidateهای پروفایل فقط به کسب‌وکار مشخص با `lead_id` وصل می‌شوند. شباهت نام به‌تنهایی هرگز `confirmed` نیست؛ `confirmed` به لینک first-party و شواهد سازگار نیاز دارد. بدون لینک first-party، شواهد حرفه‌ای سازگار حداکثر `probable` می‌شود و تعارض‌ها `unverified` باقی می‌مانند. فقط پلتفرم‌های allowlist و URLهای HTTPS ذخیره می‌شوند و رابطهٔ ثبت‌شده «پروفایل کسب‌وکار» است، نه مالک یا شخص. هر review با وضعیت قبلی، وضعیت جدید، دلیل و زمان در `profile_review_audit` ثبت می‌شود.
+
 ## منابع اجتماعی: قرارداد آماده، اجرا غیرفعال
 
 قرارداد mapping مشترک برای Instagram، TikTok و YouTube در `src/connectors/social_profiles.py` آماده است. فقط URL عمومی HTTPS، عنوان/handle، bio حرفه‌ای و لینک رسمی احتمالی نگه داشته می‌شوند؛ email، comment، reviewer، audience و دادهٔ شخصی حذف می‌شوند. هر سه connector تا contract gate رسمی Actor، بررسی schema/pricing و تأیید privacy، `disabled` باقی می‌مانند.
