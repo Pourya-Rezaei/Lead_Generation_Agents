@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 {% block title %}{{ campaign.name }} · نقشهٔ لید{% endblock %}
 {% block content %}
-<section class="hero"><span class="eyebrow">کمپین</span><h1>{{ campaign.name }}</h1><p>{{ campaign.description or 'برای این کمپین توضیحی ثبت نشده است.' }}</p><code>{{ campaign.campaign_id }}</code></section>
+<section class="hero"><a class="eyebrow" href="/campaigns">فهرست‌های من /</a><h1>{{ campaign.name }}</h1>{% if campaign.description %}<p>{{ campaign.description }}</p>{% endif %}<div class="actions"><a class="btn" href="/search">افزودن مشتری</a></div></section>
 <div class="grid">
   <div class="card metric"><span>لیدهای این کمپین</span><strong>{{ stats.lead_count }}</strong></div>
   <div class="card metric"><span>دفعات جست‌وجو</span><strong>{{ stats.run_count }}</strong></div>
   <div class="card"><span class="muted">خروجی گرفتن</span><div class="actions" style="margin-top:12px"><a class="btn secondary" href="/campaigns/{{ campaign.campaign_id }}/export?format=csv">CSV</a><a class="btn secondary" href="/campaigns/{{ campaign.campaign_id }}/export?format=json">JSON</a></div></div>
 </div>
 <section class="section-head"><div><h2>لیدهای کمپین</h2><p>آخرین اطلاعات ذخیره‌شده برای این فضای کاری</p></div></section>
-<div class="panel table-wrap"><table class="table"><thead><tr><th>نام کسب‌وکار</th><th>آدرس</th><th>تلفن</th><th>وب‌سایت</th><th>امتیاز</th></tr></thead><tbody>
-{% for lead in leads %}<tr><td><strong>{{ lead.name }}</strong></td><td>{{ lead.address or '—' }}</td><td dir="ltr">{{ lead.phone or '—' }}</td><td dir="ltr">{{ lead.website or '—' }}</td><td>{{ lead.score }}</td></tr>
-{% else %}<tr><td colspan="5" class="muted">هنوز لیدی در این کمپین نیست. اولین جست‌وجو را شروع کن.</td></tr>{% endfor %}
+<div class="panel table-wrap" role="region" aria-label="مشتری‌های فهرست" tabindex="0"><table class="table lead-table"><thead><tr><th>نام کسب‌وکار</th><th>آدرس</th><th>تلفن</th><th>وب‌سایت</th><th>امتیاز</th></tr></thead><tbody>
+{% for lead in leads %}<tr><td data-label="نام کسب‌وکار"><strong>{{ lead.name }}</strong></td><td data-label="آدرس">{{ lead.address or '—' }}</td><td data-label="تلفن"><span dir="ltr">{{ lead.phone or '—' }}</span></td><td data-label="وب‌سایت"><span dir="ltr">{{ lead.website or '—' }}</span></td><td data-label="امتیاز">{{ lead.score }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">هنوز لیدی در این کمپین نیست. <a class="btn secondary" href="/search">اولین جست‌وجو</a></td></tr>{% endfor %}
 </tbody></table></div>
 {% endblock %}

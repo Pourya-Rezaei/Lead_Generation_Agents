@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block title %}اجرای جست‌وجوها · نقشهٔ لید{% endblock %}
 {% block content %}
-<section class="hero"><span class="eyebrow">تاریخچهٔ اجرا</span><h1>جست‌وجوهای اخیر</h1><p>وضعیت هر اجرای چندمنبعی و نتیجهٔ مستقل منابع را بررسی کن.</p></section>
+<section class="hero"><span class="eyebrow">تاریخچهٔ اجرا</span><h1>جست‌وجوهای اخیر</h1><p>وضعیت جست‌وجوها و نتایج آن‌ها</p></section>
 <div class="panel table-wrap">
   {% if jobs %}<table class="table"><thead><tr><th>شناسه</th><th>وضعیت</th><th>منابع</th><th>جزئیات</th></tr></thead><tbody>
-  {% for job in jobs %}<tr><td><code>{{ job.job_id[:12] }}</code></td><td>{{ job.state }}</td><td>{{ job.request.get('sources', [job.request.get('source', '—')])|join('، ') }}</td><td><a class="btn secondary" href="/jobs/{{ job.job_id }}">مشاهده</a></td></tr>{% endfor %}
-  </tbody></table>{% else %}<p class="muted">هنوز اجرایی ثبت نشده است.</p>{% endif %}
+  {% for job in jobs %}<tr><td><code>{{ job.job_id[:12] }}</code></td><td><span class="status status-{{ job.state }}">{{ {'queued': 'در صف', 'running': 'در حال جست‌وجو', 'succeeded': 'تکمیل شد', 'partial': 'بخشی تکمیل شد', 'failed': 'ناموفق', 'cancelled': 'لغو شد', 'needs_review': 'نیاز به بررسی'}.get(job.state, job.state) }}</span></td><td>{{ job.request.get('sources', [job.request.get('source', '—')])|join('، ') }}</td><td><a class="btn secondary" href="/jobs/{{ job.job_id }}">مشاهده</a></td></tr>{% endfor %}
+  </tbody></table>{% else %}<p class="muted">هنوز اجرایی ثبت نشده است.</p><a class="btn" href="/search">اولین جست‌وجو</a>{% endif %}
 </div>
 {% endblock %}

@@ -1,13 +1,67 @@
 {% extends "base.html" %}
 {% block title %}جزئیات اجرا · نقشهٔ لید{% endblock %}
 {% block content %}
-<section class="hero"><span class="eyebrow">جزئیات اجرا</span><h1>{{ job.state }}</h1><p><code>{{ job.job_id }}</code></p></section>
-<div class="panel" data-job-id="{{ job.job_id }}" data-job-state="{{ job.state }}"><h2>خلاصه</h2><p>هزینهٔ برآوردی: {{ job.request.get('estimated_cost', 'ثبت نشده') }} {{ job.request.get('currency', '') }}</p><p>هزینهٔ واقعی: {{ job.progress.get('actual_cost', 'ثبت نشده') }}</p><h2>درخواست</h2><pre>{{ job.request | tojson(indent=2) }}</pre><h2>پیشرفت</h2><p id="job-state">وضعیت: {{ job.state }}</p><div id="job-sources">{% for item in job.progress.get('sources', []) %}<p>{{ item.source }}: {{ item.state }}{% if item.error_code %} ({{ item.error_code }}){% endif %}</p>{% endfor %}</div><pre id="job-progress">{{ job.progress | tojson(indent=2) }}</pre>{% if job.error_code %}<p class="error">کد خطا: {{ job.error_code }}</p>{% endif %}{% if job.state in ['failed', 'partial', 'cancelled'] %}<button class="btn" id="retry-job" type="button">اجرای مجدد</button>{% endif %}<a class="btn secondary" href="/jobs">بازگشت به تاریخچه</a></div>
+{% set states = {'queued': 'در صف', 'running': 'در حال جست‌وجو', 'succeeded': 'تکمیل شد', 'partial': 'بخشی تکمیل شد', 'failed': 'ناموفق', 'cancelled': 'لغو شد', 'needs_review': 'نیاز به بررسی'} %}
+<section class="hero"><a class="eyebrow" href="/jobs">تاریخچهٔ اجرا /</a><h1>{{ job.request.get('query') or 'جزئیات جست‌وجو' }}</h1><p>{{ job.request.get('location', '') }}</p></section>
+<div class="panel" data-job-id="{{ job.job_id }}" data-job-state="{{ job.state }}">
+  <h2>وضعیت جست‌وجو</h2>
+  <p id="job-state" class="status status-{{ job.state }}" role="status">{{ states.get(job.state, job.state) }}</p>
+  <div id="job-sources">{% for item in job.progress.get('sources', []) %}<p>{{ item.source }}: {{ states.get(item.state, item.state) }}</p>{% endfor %}</div>
+  <p id="job-feedback" role="status"></p>
+  {% if job.error_code %}<p class="error" role="alert">جست‌وجو کامل نشد. کد خطا: {{ job.error_code }}</p>{% endif %}
+  <div class="actions">
+    <button class="btn" id="retry-job" type="button" {% if job.state not in ['failed', 'partial', 'cancelled'] %}hidden{% endif %}>اجرای مجدد</button>
+    <button class="btn secondary" id="cancel-job" type="button" {% if job.state not in ['queued', 'running'] %}hidden{% endif %}>لغو جست‌وجو</button>
+    <a class="btn secondary" href="/jobs">بازگشت به تاریخچه</a>
+  </div>
+  <details class="advanced"><summary>هزینه و جزئیات فنی</summary>
+    <p>هزینهٔ برآوردی: {{ job.request.get('estimated_cost', 'ثبت نشده') }} {{ job.request.get('currency', '') }}</p>
+    <p>هزینهٔ واقعی: {{ job.progress.get('actual_cost', 'ثبت نشده') }}</p>
+    <code>{{ job.job_id }}</code><h2>درخواست</h2><pre>{{ job.request | tojson(indent=2) }}</pre>
+    <h2>پیشرفت</h2><pre id="job-progress">{{ job.progress | tojson(indent=2) }}</pre>
+  </details>
+</div>
 <script>
-(() => { const panel = document.querySelector('[data-job-id]'); const id = panel.dataset.jobId; const terminal = new Set(['succeeded','partial','failed','cancelled']);
-  async function refresh() { const response = await fetch(`/api/jobs/${id}`); if (!response.ok) return; const data = await response.json(); document.querySelector('#job-state').textContent = `وضعیت: ${data.state}`; document.querySelector('#job-progress').textContent = JSON.stringify(data.progress, null, 2); if (!terminal.has(data.state)) window.setTimeout(refresh, 2500); }
+(() => { const panel = document.querySelector('[data-job-id]'); const id = encodeURIComponent(panel.dataset.jobId); const terminal = new Set(['succeeded','partial','failed','cancelled','needs_review']);
+  const states = {{ states | tojson }};
+  const feedback = document.querySelector('#job-feedback');
+  function render(data) {
+    const state = document.querySelector('#job-state');
+    state.textContent = states[data.state] || data.state;
+    state.className = `status status-${data.state}`;
+    document.querySelector('#job-progress').textContent = JSON.stringify(data.progress, null, 2);
+    document.querySelector('#retry-job').hidden = !['failed','partial','cancelled'].includes(data.state);
+    document.querySelector('#cancel-job').hidden = !['queued','running'].includes(data.state);
+    const sources = (data.progress.sources || []).map(item => {
+      const row = document.createElement('p');
+      row.textContent = `${item.source}: ${states[item.state] || item.state}`;
+      return row;
+    });
+    document.querySelector('#job-sources').replaceChildren(...sources);
+  }
+  async function refresh() {
+    try {
+      const response = await fetch(`/api/jobs/${id}`);
+      if (!response.ok) throw new Error('refresh');
+      const data = await response.json(); render(data); feedback.textContent = '';
+      if (!terminal.has(data.state)) window.setTimeout(refresh, 2500);
+    } catch { feedback.textContent = 'دریافت وضعیت ممکن نشد؛ دوباره تلاش می‌کنیم.'; window.setTimeout(refresh, 5000); }
+  }
   if (!terminal.has(panel.dataset.jobState)) window.setTimeout(refresh, 500);
-  const retry = document.querySelector('#retry-job'); if (retry) retry.addEventListener('click', async () => { const response = await fetch(`/api/jobs/${id}/retry`, {method:'POST'}); if (response.ok) window.location.href = `/jobs/${(await response.json()).job_id}`; });
+  const retry = document.querySelector('#retry-job');
+  retry.addEventListener('click', async () => {
+    retry.disabled = true;
+    try { const response = await fetch(`/api/jobs/${id}/retry`, {method:'POST'}); if (!response.ok) throw new Error('retry'); window.location.href = `/jobs/${encodeURIComponent((await response.json()).job_id)}`; }
+    catch { feedback.textContent = 'اجرای مجدد ممکن نشد. دوباره تلاش کن.'; retry.disabled = false; }
+  });
+  const cancel = document.querySelector('#cancel-job');
+  cancel.addEventListener('click', async () => {
+    if (!window.confirm('این جست‌وجو لغو شود؟')) return;
+    cancel.disabled = true;
+    try { const response = await fetch(`/api/jobs/${id}/cancel`, {method:'POST'}); if (!response.ok) throw new Error('cancel'); render(await response.json()); }
+    catch { feedback.textContent = 'لغو ممکن نشد. دوباره تلاش کن.'; }
+    finally { cancel.disabled = false; }
+  });
 })();
 </script>
 {% endblock %}

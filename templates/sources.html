@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}وضعیت منابع · نقشهٔ لید{% endblock %}
 {% block content %}
-<section class="hero"><span class="eyebrow">قرارداد و هزینه</span><h1>وضعیت منابع</h1><p>هیچ Actor پولی بدون عبور از همهٔ دروازه‌های schema، حریم خصوصی و قیمت اجرا نمی‌شود.</p></section>
-<div class="grid">{% for item in contracts %}<article class="card"><h2>{{ item.platform }}</h2><p><code>{{ item.actor }}</code></p><p>{{ item.pricing_summary }}</p><p class="error">وضعیت: {{ item.status }} · دروازه‌های باقی‌مانده: {{ item.failed_gates|join('، ') }}</p><a class="btn secondary" href="{{ item.docs_url }}" rel="noreferrer">مستندات رسمی</a></article>{% endfor %}</div>
+<section class="hero"><span class="eyebrow">تنظیمات</span><h1>وضعیت منابع</h1><p>منابع آماده و منابع نیازمند بررسی</p></section>
+<div class="grid">{% for item in contracts %}<article class="card"><h2>{{ {'linkedin_jobs': 'LinkedIn Jobs', 'instagram': 'Instagram', 'tiktok': 'TikTok'}.get(item.platform, item.platform) }}</h2><p class="status {% if item.status == 'passed' %}status-succeeded{% else %}status-partial{% endif %}">{{ 'بررسی قرارداد کامل شد' if item.status == 'passed' else 'نیاز به بررسی' }}</p><p>{{ item.pricing_summary }}</p><details class="advanced"><summary>جزئیات منبع</summary><p><code>{{ item.platform }}</code> · <code>{{ item.actor }}</code></p><p>وضعیت: {{ item.status }} · دروازه‌های باقی‌مانده: {{ item.failed_gates|join('، ') }}</p><a class="btn secondary" href="{{ item.docs_url }}" rel="noreferrer">مستندات رسمی</a></details></article>{% endfor %}</div>
 {% endblock %}

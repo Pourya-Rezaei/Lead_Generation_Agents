@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 {% block title %}کمپین‌ها · نقشهٔ لید{% endblock %}
 {% block content %}
-<section class="hero"><span class="eyebrow">فضای کاری</span><h1>کمپین‌ها</h1><p>هر کمپین یک مسیر مستقل برای جمع‌کردن و پیگیری لیدهای مرتبط است.</p></section>
-<div class="panel">
-  <div class="section-head"><div><h2>ساخت کمپین تازه</h2><p>یک نام واضح انتخاب کن تا بعداً سریع پیدایش کنی.</p></div></div>
+<section class="hero"><span class="eyebrow">مشتری‌های ذخیره‌شده</span><h1>فهرست‌های من</h1><p>{{ campaigns|length }} فهرست برای پیگیری مشتری‌ها</p><div class="actions"><a class="btn" href="/search">پیدا کردن مشتری</a></div></section>
+<details class="advanced" {% if not campaigns %}open{% endif %}><summary>ساخت فهرست جدید</summary><div class="panel">
+  <div class="section-head"><div><h2>ساخت فهرست تازه</h2></div></div>
   <form method="post" action="/campaigns" class="form-grid">
-    <div class="field"><label for="campaign_id">شناسهٔ کمپین</label><input id="campaign_id" name="campaign_id" placeholder="مثلاً tehran-dentists" required></div>
-    <div class="field"><label for="name">نام کمپین</label><input id="name" name="name" placeholder="دندان‌پزشکی تهران" required></div>
+    <div class="field"><label for="campaign_id">شناسهٔ فهرست</label><input id="campaign_id" name="campaign_id" dir="ltr" placeholder="tehran-dentists" required></div>
+    <div class="field"><label for="name">نام فهرست</label><input id="name" name="name" placeholder="دندان‌پزشکی تهران" required></div>
     <div class="field full"><label for="description">توضیح کوتاه <span class="muted">(اختیاری)</span></label><textarea id="description" name="description" rows="3" placeholder="هدف این کمپین چیست؟"></textarea></div>
-    <div><button class="btn" type="submit">ساخت کمپین</button></div>
+    <div><button class="btn" type="submit">ساخت فهرست</button></div>
   </form>
-</div>
-<section class="section-head"><div><h2>کمپین‌های موجود</h2><p>{{ campaigns|length }} کمپین در این دیتابیس</p></div></section>
+</div></details>
+<section class="section-head"><div><h2>فهرست‌های ذخیره‌شده</h2></div></section>
 <ul class="list">
 {% for campaign in campaigns %}<li><a href="/campaigns/{{ campaign.campaign_id }}"><span><strong>{{ campaign.name }}</strong><br><small class="muted">{{ campaign.description or 'بدون توضیح' }}</small></span><code>{{ campaign.campaign_id }}</code></a></li>
 {% else %}<li class="card">هنوز کمپینی ساخته نشده است.</li>{% endfor %}

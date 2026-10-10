@@ -1,14 +1,15 @@
 {% extends "base.html" %}
 {% block title %}جست‌وجوی جدید · نقشهٔ لید{% endblock %}
 {% block content %}
-<section class="hero"><span class="eyebrow">جست‌وجوی چندمنبعی</span><h1>پیدا کردن کسب‌وکارهای محلی</h1><p>حوزهٔ فعالیت و شهر را وارد کن تا منابع انتخاب‌شده به‌صورت مستقل اجرا شوند و نتیجهٔ ناقص هم حفظ شود.</p></section>
-<div class="panel">
+<section class="hero"><span class="eyebrow">جست‌وجوی جدید</span><h1>چه مشتری‌هایی می‌خواهی پیدا کنی؟</h1><p>نوع کسب‌وکار و شهر را انتخاب کن.</p></section>
+<div class="panel search-workspace">
   {% if notice %}<div class="notice">{{ notice }}</div>{% endif %}
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
   <form method="post" action="/search" class="form-grid">
-    <div class="field"><label for="query">حوزهٔ فعالیت یا شغل</label><input id="query" name="query" value="{{ form.query if form else '' }}" placeholder="مثلاً دندان‌پزشکی" required></div>
-    <div class="field"><label for="location">شهر یا محدوده</label><input id="location" name="location" value="{{ form.location if form else '' }}" placeholder="مثلاً تهران" required></div>
-    <div class="field"><label for="campaign_id">کمپین مقصد</label><select id="campaign_id" name="campaign_id" required>{% for campaign in campaigns %}<option value="{{ campaign.campaign_id }}" {% if form and form.campaign_id == campaign.campaign_id %}selected{% endif %}>{{ campaign.name }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="query"><span class="step-label" aria-hidden="true">۱</span>چه کسب‌وکاری؟</label><input id="query" name="query" value="{{ form.query if form else '' }}" placeholder="مثلاً دندان‌پزشکی" required></div>
+    <div class="field"><label for="location"><span class="step-label" aria-hidden="true">۲</span>کدام شهر؟</label><input id="location" name="location" value="{{ form.location if form else '' }}" placeholder="مثلاً تهران" required></div>
+    <div class="field full"><label for="campaign_id"><span class="step-label" aria-hidden="true">۳</span>ذخیره در کدام فهرست؟</label><select id="campaign_id" name="campaign_id" required>{% for campaign in campaigns %}<option value="{{ campaign.campaign_id }}" {% if form and form.campaign_id == campaign.campaign_id %}selected{% endif %}>{{ campaign.name }}</option>{% endfor %}</select></div>
+    <details class="full advanced" {% if form %}open{% endif %}><summary>تنظیمات بیشتر</summary><div class="form-grid">
     <div class="field"><label for="limit">حداکثر نتیجه</label><input id="limit" name="limit" type="number" min="1" max="100" value="{{ form.limit if form else 20 }}" required></div>
     <fieldset class="full source-picker">
       <legend>منابع جست‌وجو</legend>
@@ -22,7 +23,8 @@
         {% endfor %}
       </div>
     </fieldset>
-    <div class="full"><button class="btn" type="submit">اجرای جست‌وجو</button></div>
+    </div></details>
+    <div class="full"><button class="btn" type="submit">پیدا کردن مشتری‌ها</button></div>
   </form>
 </div>
 {% endblock %}

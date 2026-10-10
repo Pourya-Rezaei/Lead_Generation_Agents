@@ -6,8 +6,10 @@
   <meta name="description" content="مدیریت و جمع‌آوری لیدهای کسب‌وکارهای محلی">
   <title>{% block title %}نقشهٔ لید{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='workspace.css') }}">
 </head>
 <body>
+  <a class="skip-link" href="#main-content">رفتن به محتوای اصلی</a>
   <div class="shell">
     <header class="topbar">
       <a class="brand" href="/">
@@ -15,16 +17,15 @@
         <span>نقشهٔ لید<small>جمع‌آوری هوشمند کسب‌وکارهای محلی</small></span>
       </a>
       <nav class="nav" aria-label="منوی اصلی">
-        <a href="/">نمای کلی</a>
-        <a href="/campaigns">کمپین‌ها</a>
-        <a href="/search">جست‌وجوی جدید</a>
-        <a href="/jobs">تاریخچهٔ اجرا</a>
-        <a href="/sources">منابع و قراردادها</a>
+        {% for href, label in [('/', 'خانه'), ('/search', 'پیدا کردن مشتری'), ('/campaigns', 'فهرست‌های من'), ('/jobs', 'تاریخچهٔ اجرا')] %}
+        <a href="{{ href }}" {% if request.url.path == href or (href != '/' and request.url.path.startswith(href + '/')) %}aria-current="page"{% endif %}>{{ label }}</a>
+        {% endfor %}
+        <details class="nav-more"><summary>بیشتر</summary><a href="/sources" {% if request.url.path == '/sources' %}aria-current="page"{% endif %}>وضعیت منابع</a></details>
       </nav>
     </header>
-    {% if message %}<p class="notice">{{ message }}</p>{% endif %}
+    {% if message %}<p class="notice" role="status">{{ message }}</p>{% endif %}
     {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-    {% block content %}{% endblock %}
+    <main id="main-content" tabindex="-1">{% block content %}{% endblock %}</main>
     <footer class="footer">اطلاعات این پنل از منابع عمومی کسب‌وکارها جمع‌آوری می‌شود.</footer>
   </div>
 </body>

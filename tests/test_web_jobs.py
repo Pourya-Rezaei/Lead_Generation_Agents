@@ -45,6 +45,11 @@ def test_jobs_history_and_detail_render(tmp_path):
     detail = client.get(f"/jobs/{job_id}")
     assert detail.status_code == 200
     assert job_id in detail.text
+    assert 'id="job-state"' in detail.text
+    assert 'id="cancel-job"' in detail.text
+    assert 'id="job-progress"' in detail.text
+    assert 'هزینه و جزئیات فنی' in detail.text
+    assert 'در صف' in detail.text
 
 
 def test_failed_job_can_be_retried(tmp_path):

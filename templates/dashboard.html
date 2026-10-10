@@ -2,19 +2,19 @@
 {% block title %}نمای کلی · نقشهٔ لید{% endblock %}
 {% block content %}
 <section class="hero">
-  <span class="eyebrow">مرکز فرمان لیدها</span>
-  <h1>از جست‌وجو تا فرصت فروش، یک‌جا.</h1>
-  <p>کسب‌وکارهای محلی را بر اساس شهر و حوزهٔ فعالیت پیدا کن، در کمپین‌ها مرتب کن و خروجی آمادهٔ استفاده بگیر.</p>
-  <div class="actions"><a class="btn" href="/search">شروع جست‌وجو</a><a class="btn secondary" href="/campaigns">مدیریت کمپین‌ها</a></div>
+  <span class="eyebrow">فضای کاری شما</span>
+  <h1>مشتری‌های بعدی‌ات را پیدا کن.</h1>
+  <p>کسب‌وکارهای موردنظرت در یک فهرست، آمادهٔ پیگیری.</p>
+  <div class="actions"><a class="btn" href="/search">پیدا کردن مشتری</a></div>
 </section>
 <section class="grid" aria-label="آمار کلی">
-  <div class="card metric"><span>کمپین‌های فعال</span><strong>{{ campaign_count }}</strong></div>
-  <div class="card metric"><span>لیدهای ذخیره‌شده</span><strong>{{ lead_count }}</strong></div>
-  <div class="card metric"><span>منبع فعلی</span><strong style="font-size:24px">Google Places</strong></div>
+  <div class="card metric"><span>فهرست‌های من</span><strong>{{ campaign_count }}</strong></div>
+  <div class="card metric"><span>مشتری‌های ذخیره‌شده</span><strong>{{ lead_count }}</strong></div>
+  <a class="card" href="/jobs"><span class="eyebrow">فعالیت‌ها</span><h3>جست‌وجوهای اخیر</h3><span class="muted">مشاهده وضعیت اجراها</span></a>
 </section>
-<section class="section-head"><div><h2>شروع سریع</h2><p>برای ادامه فقط یکی از مسیرها را انتخاب کن.</p></div></section>
+<section class="section-head"><div><h2>ادامهٔ کار</h2></div></section>
 <div class="grid">
-  <a class="card" href="/search"><span class="eyebrow">۱ · پیدا کردن</span><h3>یک جست‌وجوی جدید</h3><p class="muted">نام شغل، شهر و کمپین را انتخاب کن.</p></a>
-  <a class="card" href="/campaigns"><span class="eyebrow">۲ · سازمان‌دهی</span><h3>کمپین‌هایت را ببین</h3><p class="muted">نتایج مرتبط را در یک فضای کاری نگه دار.</p></a>
+  <a class="card" href="/campaigns"><span class="eyebrow">مشتری‌های ذخیره‌شده</span><h3>فهرست‌های من</h3><p class="muted">مشاهده مشتری‌ها و دریافت خروجی</p></a>
+  <a class="card" href="/sources"><span class="eyebrow">تنظیمات</span><h3>وضعیت منابع</h3><p class="muted">بررسی منابع آمادهٔ جست‌وجو</p></a>
 </div>
 {% endblock %}

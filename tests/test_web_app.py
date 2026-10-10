@@ -102,6 +102,49 @@ def test_unknown_campaign_returns_404(client):
     assert response.status_code == 404
 
 
+@pytest.mark.parametrize("path", ["/", "/search", "/campaigns", "/jobs", "/sources"])
+def test_workspace_shell_has_accessible_landmarks(client, path):
+    response = client.get(path)
+    assert response.status_code == 200
+    assert 'href="#main-content"' in response.text
+    assert '<main id="main-content"' in response.text
+    assert 'aria-current="page"' in response.text
+    assert "workspace.css" in response.text
+
+
+def test_search_discloses_advanced_settings_without_changing_form_contract(client):
+    from html.parser import HTMLParser
+
+    class FormParser(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.fields = set()
+            self.disclosures = []
+
+        def handle_starttag(self, tag, attrs):
+            attributes = dict(attrs)
+            if tag in {"input", "select"}:
+                self.fields.add(attributes.get("name"))
+            if tag == "details":
+                self.disclosures.append(attributes)
+
+    parser = FormParser()
+    response = client.get("/search")
+    parser.feed(response.text)
+    assert {"query", "location", "campaign_id", "limit", "source"} <= parser.fields
+    advanced = next(item for item in parser.disclosures if "advanced" in item.get("class", ""))
+    assert "open" not in advanced
+    assert 'method="post" action="/search"' in response.text
+
+
+def test_workspace_styles_are_served(client):
+    response = client.get("/static/workspace.css")
+    assert response.status_code == 200
+    assert "text/css" in response.headers["content-type"]
+    assert ":focus-visible" in response.text
+    assert "@media" in response.text
+
+
 def test_search_route_calls_service_and_redirects(fake_service):
     client, service = fake_service
     response = client.post(
