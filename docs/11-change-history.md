@@ -139,7 +139,8 @@ Web smoke routes   -> /, /campaigns, /search و /static/styles.css موفق
 - صفحهٔ Job با polling خودکار progress، وضعیت هر منبع و اجرای مجدد Jobهای `failed`، `partial` و `cancelled` تکمیل شد.
 - صفحهٔ `/profiles/{lead_id}` برای بازبینی و تأیید/رد دستی پروفایل‌های عمومی اضافه شد.
 - وضعیت contract gate و سیاست عدم اجرای Actorهای پولی اجتماعی در `/sources` و `/api/source-contracts` قابل مشاهده شد.
-- آخرین اعتبارسنجی آفلاین: `pytest -q` با نتیجهٔ `166 passed` و یک warning سازگاری Starlette/httpx.
+- درخواست فعال‌سازی هر Actor نیز تا عبور schema/privacy/pricing gate با خطای امن `409` رد می‌شود.
+- آخرین اعتبارسنجی آفلاین: `pytest -q` با نتیجهٔ `167 passed` و یک warning سازگاری Starlette/httpx.
 
 ## تصمیم‌های باقی‌مانده برای توسعه آینده
 

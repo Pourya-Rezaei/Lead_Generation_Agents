@@ -4,6 +4,13 @@ from src.config import Settings
 from src.web.app import create_app
 
 
+def test_source_activation_request_is_blocked_without_schema(tmp_path):
+    app = create_app(Settings(database_path=str(tmp_path / "activation.db"), _env_file=None))
+    response = TestClient(app).post("/api/source-contracts/instagram/activation-request")
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "contract_gate_blocked"
+
+
 def test_source_contracts_remain_blocked(tmp_path):
     app = create_app(Settings(database_path=str(tmp_path / "sources.db"), _env_file=None))
     client = TestClient(app)

@@ -106,6 +106,20 @@ def _source_capabilities(request: Request):
     return capabilities if isinstance(capabilities, tuple) else ()
 
 
+@router.post("/api/source-contracts/{platform}/activation-request")
+def request_source_activation(platform: str):
+    connector = SOCIAL_ACTOR_ADAPTERS.get(platform)
+    if connector is None:
+        raise HTTPException(status_code=404, detail="source contract not found")
+    report = connector.contract.gate_report
+    if not report.passed:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "contract_gate_blocked", "failed_gates": report.failed_gates},
+        )
+    return {"platform": platform, "status": "awaiting_explicit_paid_smoke_approval"}
+
+
 @router.get("/api/source-contracts")
 def api_source_contracts():
     return [

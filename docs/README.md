@@ -29,7 +29,8 @@
 - polling خودکار progress، نمایش وضعیت منابع و اجرای مجدد Jobهای شکست‌خورده یا partial
 - صفحهٔ بازبینی پروفایل‌های عمومی در `/profiles/{lead_id}`
 - صفحهٔ وضعیت منابع و contract gateها در `/sources` و `/api/source-contracts`
-- تست کامل فعلی: `166 passed`
+- endpoint امن activation request که تا تکمیل schema gate هیچ Actor پولی را فعال نمی‌کند
+- تست کامل فعلی: `167 passed`
 
 منبع `web` و Connectorهای Instagram، TikTok و YouTube در حال حاضر فعال نیستند و نباید به‌عنوان قابلیت آماده معرفی شوند. در رابط وب، فقط `places` فعال است.
 - `ConnectorRegistry.capabilities()` و `SearchLeadsService.source_capabilities()` descriptor قابلیت‌ها را بدون اجرای Actor ارائه می‌کنند؛ `select_sources([...])` انتخاب چند منبع را پیش از ساخت Connector اعتبارسنجی می‌کند و برای منبع غیرفعال خطای امن می‌دهد.
