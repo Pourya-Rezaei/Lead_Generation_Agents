@@ -49,3 +49,16 @@ No secrets are included in this repository.
 ### Social Actor contract status (Phase E)
 
 Instagram and TikTok remain disabled. LinkedIn Jobs is contract-verified for controlled campaign execution. Official Apify Store metadata: Instagram is listed at **$1.50/1,000 results**, TikTok at **$1.70/1,000 results**, and LinkedIn Jobs at approximately **$0.0008/job result**. LinkedIn Jobs uses the verified `keywords`, `location`, `maxResults`, `scrapeDetails`, and `scrapeCompany` input contract; Instagram and TikTok remain unverified. See `docs/06-apify-integration.md` for the official URLs and gate model.
+
+### Container deployment
+
+Build and run the production image locally:
+
+```bash
+docker build -t local-lead-generation .
+mkdir -p data && sudo chown 10001:10001 data
+docker run --rm -p 8000:8000 -v "$(pwd)/data:/data" \
+	-e APIFY_API_TOKEN="$APIFY_API_TOKEN" local-lead-generation
+```
+
+The SQLite database is stored at `/data/leads.db`. For Render, use the included `render.yaml` and configure `APIFY_API_TOKEN` as a secret. For Kubernetes, publish the image, update the image reference in `k8s/deployment.yaml`, create the secret from `k8s/secret.example.yaml`, then apply `k8s/pvc.yaml`, `k8s/deployment.yaml`, and `k8s/service.yaml`. Keep one replica unless the storage layer is changed from SQLite to a server database.

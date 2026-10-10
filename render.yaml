@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: local-lead-generation
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health/live
+    envVars:
+      - key: DATABASE_PATH
+        value: /data/leads.db
+      - key: APIFY_API_TOKEN
+        sync: false
+    disk:
+      name: lead-data
+      mountPath: /data
+      sizeGB: 10
