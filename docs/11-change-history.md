@@ -202,3 +202,10 @@ Web smoke routes   -> /, /campaigns, /search و /static/styles.css موفق
 - Recovery برای leaseهای منقضی‌شده و حفاظت fencing حفظ شد.
 - `JobWorker.stop()` برای shutdown هماهنگ اضافه شد.
 - endpointهای `/health/live` و `/health/ready` با خطاهای sanitized اضافه شدند.
+
+
+## Explainable data quality (2026-10-10)
+
+- `Lead` اکنون evidence و confidence سطح فیلد را به‌صورت backward-compatible نگه می‌دارد.
+- connectorهای Places، Google Search و LinkedIn Jobs provenance و confidence منبع‌محور ثبت می‌کنند.
+- دلیل‌های deterministic برای deduplication اضافه شد؛ هیچ owner inference انجام نمی‌شود.

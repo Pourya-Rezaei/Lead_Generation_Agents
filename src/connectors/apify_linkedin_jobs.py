@@ -97,6 +97,13 @@ class ApifyLinkedInJobsConnector(Connector):
                 source=cls.source,
                 source_id=str(item["jobId"]) if item.get("jobId") is not None else None,
                 source_url=job_url,
+                field_evidence={
+                    "name": ("linkedin:companyName",),
+                    "address": ("linkedin:location",),
+                    "source_id": ("linkedin:jobId",),
+                    "source_url": ("linkedin:jobUrl",),
+                },
+                field_confidence={"name": 0.9, "address": 0.8, "source_id": 1.0, "source_url": 1.0},
             ))
         except (TypeError, ValueError):
             return None

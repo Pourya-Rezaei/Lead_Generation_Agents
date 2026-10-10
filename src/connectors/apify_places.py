@@ -186,6 +186,12 @@ class ApifyPlacesConnector(Connector):
                 reviews=item.get("reviewsCount") or item.get("reviews"),
                 source_id=item.get("placeId") or item.get("cid"),
                 source_url=item.get("url"),
+                field_evidence={
+                    "name": ("places:title",), "address": ("places:address",),
+                    "phone": ("places:phone",), "website": ("places:website",),
+                    "source_id": ("places:placeId",), "source_url": ("places:url",),
+                },
+                field_confidence={"name": 0.95, "address": 0.95, "phone": 0.9, "website": 0.9, "source_id": 1.0, "source_url": 1.0},
             )
         )
         return lead.model_copy(update={"score": score(lead)})

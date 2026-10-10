@@ -96,6 +96,33 @@ class Lead(BaseModel):
     collected_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     source_id: str | None = None
     source_url: HttpUrl | str | None = None
+    field_evidence: dict[str, tuple[str, ...]] = Field(default_factory=dict)
+    field_confidence: dict[str, float] = Field(default_factory=dict)
+
+    @field_validator("field_evidence", mode="before")
+    @classmethod
+    def validate_field_evidence(cls, value: object) -> dict[str, tuple[str, ...]]:
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            raise ValueError("field_evidence must be an object")
+        return {str(key): tuple(str(item).strip() for item in items if str(item).strip()) for key, items in value.items() if isinstance(items, (list, tuple, set))}
+
+    @field_validator("field_confidence", mode="before")
+    @classmethod
+    def validate_field_confidence(cls, value: object) -> dict[str, float]:
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            raise ValueError("field_confidence must be an object")
+        return {str(key): float(item) for key, item in value.items()}
+
+    @field_validator("field_confidence")
+    @classmethod
+    def validate_confidence_range(cls, value: dict[str, float]) -> dict[str, float]:
+        if any(not 0 <= confidence <= 1 for confidence in value.values()):
+            raise ValueError("field confidence must be between 0 and 1")
+        return value
 
     @field_validator("name", mode="before")
     @classmethod
@@ -172,6 +199,19 @@ def identity_candidates(lead: Lead) -> tuple[str, ...]:
     if normalized.address and normalized.name:
         candidates.append(f"address-name:{normalized.address.lower()}|{normalized.name.lower()}")
     return tuple(candidates)
+
+
+def dedup_reason(left: Lead, right: Lead) -> str | None:
+    first, second = normalize(left), normalize(right)
+    if first.source_id and second.source_id and first.source and first.source == second.source and first.source_id == second.source_id:
+        return "source_id_match"
+    if first.phone and first.phone == second.phone:
+        return "phone_match"
+    if _domain(first.website) and _domain(first.website) == _domain(second.website):
+        return "domain_match"
+    if first.address and second.address and first.name.lower() == second.name.lower() and first.address.lower() == second.address.lower():
+        return "address_name_match"
+    return None
 
 
 def match_leads(left: Lead, right: Lead) -> LeadMatch:

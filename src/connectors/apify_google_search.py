@@ -49,5 +49,10 @@ class ApifyGoogleSearchConnector(Connector):
 
     @staticmethod
     def _lead(item: dict[str, Any], query: str) -> Lead:
-        lead = normalize(Lead(name=str(item["title"]), website=str(item["url"]), category=query, source=ApifyGoogleSearchConnector.source, source_url=str(item["url"])))
+        lead = normalize(Lead(
+            name=str(item["title"]), website=str(item["url"]), category=query,
+            source=ApifyGoogleSearchConnector.source, source_url=str(item["url"]),
+            field_evidence={"name": ("google_search:title",), "source_url": ("google_search:url",)},
+            field_confidence={"name": 0.55, "website": 0.45, "source_url": 0.8},
+        ))
         return lead.model_copy(update={"score": score(lead)})

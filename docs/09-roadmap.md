@@ -14,6 +14,10 @@
 - پیام خطای امن و exit code غیرصفر در CLI
 - تست‌های mock شده برای موفقیت، پاسخ malformed، credential، timeout/network، migration و export
 
+## کیفیت داده — تکمیل‌شده
+
+normalization، scoring، completeness، provenance، field evidence، field confidence و دلیل‌های deterministic برای deduplication پیاده‌سازی شده‌اند.
+
 ## فاز بعدی پیشنهادی: کیفیت داده
 
 این فاز باید قبل از افزودن منابع متعدد انجام شود:
