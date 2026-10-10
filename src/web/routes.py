@@ -19,6 +19,27 @@ from .schemas import CampaignForm
 router = APIRouter()
 
 
+@router.post("/api/social-searches/preview")
+def api_preview_social_search(payload: SocialSearchRequest):
+    from ..connectors.social_profiles import SOCIAL_ACTOR_ADAPTERS
+    previews = []
+    for source in payload.sources:
+        connector = SOCIAL_ACTOR_ADAPTERS.get(source)
+        if connector is not None:
+            input_model = connector.platform
+            previews.append({
+                "source": source,
+                "actor": connector.actor,
+                "pricing_summary": connector.contract.pricing_summary,
+                "contract_status": connector.contract.gate_report.status,
+                "executable": False,
+                "reason": "contract_gate_blocked",
+                "request_mode": payload.mode,
+                "input_model": input_model,
+            })
+    return {"mode": payload.mode, "limit": payload.limit, "previews": previews}
+
+
 @router.post("/api/social-searches")
 def api_submit_social_search(request: Request, payload: SocialSearchRequest):
     """Validate a public social request without activating disabled Actors."""

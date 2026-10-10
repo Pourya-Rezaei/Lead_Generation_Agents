@@ -4,6 +4,15 @@ from src.config import Settings
 from src.web.app import create_app
 
 
+def test_social_preview_never_executes(tmp_path):
+    app = create_app(Settings(database_path=str(tmp_path / "preview.db"), _env_file=None))
+    response = TestClient(app).post("/api/social-searches/preview", json={"sources": ["instagram"], "query": "cafe", "limit": 3})
+    assert response.status_code == 200
+    preview = response.json()["previews"][0]
+    assert preview["executable"] is False
+    assert preview["contract_status"] == "blocked"
+
+
 def test_source_activation_request_is_blocked_without_schema(tmp_path):
     app = create_app(Settings(database_path=str(tmp_path / "activation.db"), _env_file=None))
     response = TestClient(app).post("/api/source-contracts/instagram/activation-request")
