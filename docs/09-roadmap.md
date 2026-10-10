@@ -3,7 +3,7 @@
 ## وضعیت اجرایی فعلی (2026-10-10)
 
 - SQLite schema: نسخهٔ 17.
-- آخرین اجرای کامل پس از اصلاحات: 214 تست موفق روی Python 3.14 و یک هشدار deprecation از Starlette/httpx. ماتریس کامل قبلی روی Python 3.10 تا 3.14، پیش از این اصلاحات، در هر نسخه 197 تست موفق داشت؛ اجرای remote GitHub Actions هنوز تأیید نشده است.
+- آخرین اجرای کامل پس از اصلاحات: 216 تست موفق روی Python 3.14 و یک هشدار deprecation از Starlette/httpx. ماتریس کامل قبلی روی Python 3.10 تا 3.14، پیش از این اصلاحات، در هر نسخه 197 تست موفق داشت؛ اجرای remote GitHub Actions هنوز تأیید نشده است.
 - منبع‌های فعال: Google Places و Google Search؛ LinkedIn Jobs برای اجرای کنترل‌شده فعال است. Instagram و TikTok در registry غیرفعال‌اند، `web` غیرفعال است و YouTube connector فعال ندارد.
 - اجرای ناهمگام Job، worker، lease/fencing، heartbeat، بودجه، cache replay و lineage، maintenance و retention، backup/restore و readiness پیاده‌سازی شده‌اند.
 - Provider lifecycle از attempt پایدار و resume استفاده می‌کند. شروع Actor نباید پس از نتیجهٔ مبهم کورکورانه retry شود؛ موارد مبهم به `needs_review` می‌روند. لغو Job تلاش می‌کند run شناخته‌شده را abort کند و حالت شروع هم‌زمان پس از دریافت run ID دوباره بررسی می‌شود.
