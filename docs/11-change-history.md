@@ -121,9 +121,19 @@ Web smoke routes   -> /, /campaigns, /search و /static/styles.css موفق
 - parse جزئی template جست‌وجو به syntax Jinja مربوط است و خطای runtime محسوب نمی‌شود.
 - `.env`، دیتابیس محلی و cacheها عمداً خارج از index/commit نگه داشته می‌شوند.
 
+## فازهای جدید: قرارداد اجتماعی و orchestration چندمنبعی
+
+- capability registry و انتخاب منبع به‌صورت مستقل برای Places، Google Search و Actorهای اجتماعی اضافه شد.
+- قراردادهای privacy-scoped برای Instagram، TikTok و YouTube ثبت شد؛ این Actorهای پولی تا تأیید schema، privacy و pricing غیرفعال باقی می‌مانند.
+- UI فارسی جست‌وجو اکنون منابع را نمایش می‌دهد و منابع غیرفعال را قفل می‌کند.
+- `MultiSourceOrchestrator` منابع فعال را مستقل اجرا می‌کند، نتایج موفق را هنگام شکست منبع دیگر حفظ می‌کند و وضعیت `succeeded`، `partial` یا `failed` می‌دهد.
+- API `POST /api/orchestrated-searches` با idempotency و اعتبارسنجی capability اضافه شد؛ Worker نیز وضعیت partial را حفظ می‌کند.
+- آخرین اعتبارسنجی آفلاین: `pytest -q` با نتیجهٔ `163 passed` و یک warning سازگاری Starlette/httpx.
+
 ## تصمیم‌های باقی‌مانده برای توسعه آینده
 
 - افزودن Connector جدید فقط پس از تعریف source contract، provenance و privacy review.
+- اجرای واقعی Actorهای اجتماعی فقط پس از تأیید schema دقیق و smoke test پولی با رضایت صریح.
 - طراحی queue یا اجرای async فقط بعد از اثبات نیاز عملیاتی.
 - افزودن CI پس از اتصال repository به remote.
 - تعیین سیاست retention مطابق نیاز واقعی کسب‌وکار و قوانین محل اجرا.

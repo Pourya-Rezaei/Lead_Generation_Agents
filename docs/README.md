@@ -22,7 +22,10 @@
 - CLI فعال: `search`، `campaign create/list/show` و `export`
 - پنل وب محلی فارسی و راست‌به‌چپ با FastAPI/Jinja، CSS responsive و مسیرهای مدیریت Campaign، جست‌وجو و export
 - اجرای پنل فقط روی `127.0.0.1`؛ بدون احراز هویت و دسترسی شبکه‌ای در MVP
-- تست کامل فعلی: `89 passed`
+- orchestration چندمنبعی برای Google Places و Google Search با حفظ نتیجهٔ partial
+- نمایش و انتخاب منابع در UI؛ منابع اجتماعی غیرفعال با contract gate باقی می‌مانند
+- API idempotent برای ایجاد Job چندمنبعی و handler سازگار با Worker
+- تست کامل فعلی: `163 passed`
 
 منبع `web` و Connectorهای Instagram، TikTok و YouTube در حال حاضر فعال نیستند و نباید به‌عنوان قابلیت آماده معرفی شوند. در رابط وب، فقط `places` فعال است.
 - `ConnectorRegistry.capabilities()` و `SearchLeadsService.source_capabilities()` descriptor قابلیت‌ها را بدون اجرای Actor ارائه می‌کنند؛ `select_sources([...])` انتخاب چند منبع را پیش از ساخت Connector اعتبارسنجی می‌کند و برای منبع غیرفعال خطای امن می‌دهد.
