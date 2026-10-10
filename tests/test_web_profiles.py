@@ -18,5 +18,6 @@ def test_web_profile_review(tmp_path):
         candidate_id = db.execute("SELECT candidate_id FROM profile_candidates").fetchone()[0]
     client = TestClient(app)
     assert client.get("/api/profile-candidates/lead-1").status_code == 200
+    assert client.get("/profiles/lead-1").status_code == 200
     response = client.post(f"/api/profile-candidates/{candidate_id}/review", json={"status": "rejected", "reason": "no first-party link"})
     assert response.status_code == 200

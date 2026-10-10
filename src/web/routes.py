@@ -72,6 +72,21 @@ def api_job_status(request: Request, job_id: str):
     return {"job_id": job.job_id, "state": job.state, "progress": job.progress, "error_code": job.error_code}
 
 
+@router.post("/api/jobs/{job_id}/retry")
+def api_retry_job(request: Request, job_id: str):
+    from ..execution.service import JobService
+    import uuid
+    service = JobService(request.app.state.settings.database_path)
+    job = service.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.state not in {"failed", "partial", "cancelled"}:
+        raise HTTPException(status_code=409, detail="job is not retryable")
+    retry_key = f"retry:{job_id}:{uuid.uuid4().hex}"
+    retried = service.submit(job.request, retry_key)
+    return {"job_id": retried.job_id, "state": retried.state, "retry_of": job_id}
+
+
 @router.post("/api/jobs/{job_id}/cancel")
 def api_cancel_job(request: Request, job_id: str):
     from ..execution.service import JobService
@@ -107,6 +122,15 @@ def job_detail_page(request: Request, job_id: str):
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     return _templates(request).TemplateResponse(request=request, name="job_detail.html", context={"job": job})
+
+
+@router.get("/profiles/{lead_id}", response_class=HTMLResponse)
+def profile_review_page(request: Request, lead_id: str):
+    import sqlite3
+    with sqlite3.connect(request.app.state.settings.database_path) as db:
+        rows = db.execute("SELECT candidate_id, platform, url, status, confidence, evidence, review_reason FROM profile_candidates WHERE lead_id = ? ORDER BY created_at", (lead_id,)).fetchall()
+    candidates = [{"candidate_id": r[0], "platform": r[1], "url": r[2], "status": r[3], "confidence": r[4], "evidence": r[5], "review_reason": r[6]} for r in rows]
+    return _templates(request).TemplateResponse(request=request, name="profiles.html", context={"lead_id": lead_id, "candidates": candidates})
 
 
 @router.get("/api/profile-candidates/{lead_id}")

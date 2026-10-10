@@ -16,6 +16,22 @@ def test_jobs_history_and_detail_render(tmp_path):
     assert job_id in detail.text
 
 
+def test_failed_job_can_be_retried(tmp_path):
+    database = str(tmp_path / "retry.db")
+    app = create_app(Settings(database_path=database, _env_file=None))
+    client = TestClient(app)
+    response = client.post("/api/jobs", json={"query": "cafe", "location": "Tehran", "idempotency_key": "retry-1"})
+    job_id = response.json()["job_id"]
+    from src.execution.service import JobService
+    service = JobService(database)
+    with service._connect() as db:
+        db.execute("UPDATE jobs SET state = 'partial' WHERE job_id = ?", (job_id,))
+    retry = client.post(f"/api/jobs/{job_id}/retry")
+    assert retry.status_code == 200
+    assert retry.json()["retry_of"] == job_id
+    assert retry.json()["state"] == "queued"
+
+
 def test_web_job_submit_status_cancel(tmp_path):
     app = create_app(Settings(database_path=str(tmp_path / "web.db"), _env_file=None))
     client = TestClient(app)
