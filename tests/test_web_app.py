@@ -51,6 +51,16 @@ def test_create_app_registers_web_routes(tmp_path):
     assert "/search" in paths
 
 
+def test_search_form_renders_source_selection(client):
+    response = client.get("/search")
+    assert response.status_code == 200
+    assert "Google Places" in response.text
+    assert "Google Search" in response.text
+    assert "Instagram" in response.text
+    assert "فعلاً غیرفعال" in response.text
+    assert 'value="places"' in response.text
+
+
 def test_campaign_create_and_detail_render(client):
     response = client.post(
         "/campaigns", data={"campaign_id": "demo", "name": "Demo"}, follow_redirects=False

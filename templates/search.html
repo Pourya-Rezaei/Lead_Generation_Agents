@@ -8,7 +8,18 @@
     <div class="field"><label for="location">شهر یا محدوده</label><input id="location" name="location" value="{{ form.location if form else '' }}" placeholder="مثلاً تهران" required></div>
     <div class="field"><label for="campaign_id">کمپین مقصد</label><select id="campaign_id" name="campaign_id" required>{% for campaign in campaigns %}<option value="{{ campaign.campaign_id }}" {% if form and form.campaign_id == campaign.campaign_id %}selected{% endif %}>{{ campaign.name }}</option>{% endfor %}</select></div>
     <div class="field"><label for="limit">حداکثر نتیجه</label><input id="limit" name="limit" type="number" min="1" max="100" value="{{ form.limit if form else 20 }}" required></div>
-    <input type="hidden" name="source" value="places">
+    <fieldset class="full source-picker">
+      <legend>منابع جست‌وجو</legend>
+      <p class="muted">منابع غیرفعال برای شفافیت نمایش داده می‌شوند و تا زمان تأیید قرارداد قابل انتخاب نیستند.</p>
+      <div class="source-options">
+        {% for item in sources %}
+        <label class="source-option{% if not item.enabled %} is-disabled{% endif %}">
+          <input type="radio" name="source" value="{{ item.name }}" {% if item.name == 'places' %}checked{% endif %} {% if not item.enabled %}disabled{% endif %}>
+          <span><strong>{{ {'places': 'Google Places', 'google_search': 'Google Search', 'instagram': 'Instagram', 'tiktok': 'TikTok', 'youtube': 'YouTube', 'web': 'Web'}[item.name] }}</strong><small>{{ item.description }}{% if not item.enabled %} · فعلاً غیرفعال{% endif %}</small></span>
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
     <div class="full"><button class="btn" type="submit">اجرای جست‌وجو</button></div>
   </form>
 </div>

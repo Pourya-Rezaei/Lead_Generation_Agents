@@ -177,7 +177,11 @@ def search_form(request: Request):
     return _templates(request).TemplateResponse(
         request=request,
         name="search.html",
-        context={"campaigns": request.app.state.store.campaigns(), "source": "places"},
+        context={
+            "campaigns": request.app.state.store.campaigns(),
+            "source": "places",
+            "sources": request.app.state.service.source_capabilities(),
+        },
     )
 
 
