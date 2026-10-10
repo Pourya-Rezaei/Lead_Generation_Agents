@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -58,7 +58,7 @@ class PlatformSearchResult(BaseModel):
     status: RunStatus
     warnings: list[str] = Field(default_factory=list)
     run_id: str | None = None
-    started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     finished_at: datetime | None = None
 
 
@@ -71,7 +71,7 @@ class SearchResult(BaseModel):
     partial: bool = False
     warnings: list[str] = Field(default_factory=list)
     raw_records: list[dict[str, Any]] = Field(default_factory=list)
-    started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     finished_at: datetime | None = None
 
     @model_validator(mode="after")

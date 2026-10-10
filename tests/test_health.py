@@ -10,7 +10,7 @@ def test_health_endpoints_report_live_and_ready(tmp_path):
     assert client.get("/health/live").json() == {"status": "ok"}
     response = client.get("/health/ready")
     assert response.status_code == 200
-    assert response.json() == {"status": "ready", "database": True, "worker": True}
+    assert response.json() == {"status": "ready", "database": True, "worker": "not_required"}
 
 
 def test_health_ready_hides_database_error(tmp_path):

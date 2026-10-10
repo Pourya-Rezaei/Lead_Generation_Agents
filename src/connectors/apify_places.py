@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from ..apify import ApifyClient
@@ -39,28 +39,44 @@ class ApifyPlacesConnector(Connector):
         run_id = self.last_run.get("run_id")
         return {"provider_run_id": run_id} if isinstance(run_id, str) and run_id else {}
 
+    def abort(self, run_id: str) -> dict[str, object]:
+        return self.client.abort_run(run_id)
+
     def search_existing_run(self, run_id: str, query: str, limit: int = 20) -> SearchResult:
         """Resume an already-started Actor run without creating a duplicate."""
-        started_at = datetime.now(UTC)
+        started_at = datetime.now(timezone.utc)
         run = self.client.wait_for_run(run_id)
-        return self._result_from_run(run, query, limit, started_at)
+        result = self._result_from_run(run, query, limit, started_at)
+        callback = getattr(self, "on_provider_run", None)
+        if callable(callback):
+            callback(self.source, run_id, result.dataset_id, result.status.value)
+        return result
 
     def search(self, query: str, location: str, limit: int = 20) -> SearchResult:
-        started_at = datetime.now(UTC)
-        run = self.client.run_actor(
-            self.actor,
-            {
-                "searchStringsArray": [query],
-                "locationQuery": location,
-                "maxCrawledPlacesPerSearch": limit,
-            },
-            wait_for_finish=60,
-        )
+        started_at = datetime.now(timezone.utc)
+        actor_input = {
+            "searchStringsArray": [query],
+            "locationQuery": location,
+            "maxCrawledPlacesPerSearch": limit,
+        }
+        if callable(getattr(type(self.client), "start_actor", None)):
+            run = self.client.start_actor(self.actor, actor_input, wait_for_finish=0)
+            started_run_id = str(run["id"])
+            self._set_compatibility_state(started_run_id, None, RunStatus.RUNNING)
+            callback = getattr(self, "on_provider_run", None)
+            if callable(callback):
+                callback(self.source, started_run_id, None, "running")
+            run = self.client.wait_for_run(started_run_id, timeout=300, poll_interval=2)
+        else:
+            run = self.client.run_actor(self.actor, actor_input, wait_for_finish=60)
         status = map_apify_status(str(run.get("status", "")))
         run_id = str(run["id"]) if run.get("id") is not None else None
         dataset_value = run.get("defaultDatasetId") or run.get("datasetId")
         dataset_id = str(dataset_value) if dataset_value is not None else None
         self._set_compatibility_state(run_id, dataset_id, status)
+        callback = getattr(self, "on_provider_run", None)
+        if callable(callback) and run_id:
+            callback(self.source, run_id, dataset_id, status.value)
 
         if status is not RunStatus.SUCCEEDED:
             return SearchResult(
@@ -71,7 +87,7 @@ class ApifyPlacesConnector(Connector):
                 warnings=[f"Apify Actor finished with status {status.value}"],
                 started_at=started_at,
                 finished_at=(
-                    datetime.now(UTC)
+                    datetime.now(timezone.utc)
                     if status in {RunStatus.FAILED, RunStatus.ABORTED, RunStatus.TIMED_OUT}
                     else None
                 ),
@@ -109,7 +125,7 @@ class ApifyPlacesConnector(Connector):
             warnings=warnings,
             raw_records=self.raw_items,
             started_at=started_at,
-            finished_at=datetime.now(UTC),
+            finished_at=datetime.now(timezone.utc),
         )
 
     def _result_from_run(
@@ -135,7 +151,7 @@ class ApifyPlacesConnector(Connector):
             status=RunStatus.SUCCEEDED,
             leads=[self._lead(item, query) for item in items], raw_records=self.raw_items,
             warnings=["Apify dataset was empty"] if not items else [],
-            started_at=started_at, finished_at=datetime.now(UTC),
+            started_at=started_at, finished_at=datetime.now(timezone.utc),
         )
 
     def _set_compatibility_state(
@@ -165,7 +181,7 @@ class ApifyPlacesConnector(Connector):
             status=RunStatus.FAILED,
             warnings=[warning],
             started_at=started_at,
-            finished_at=datetime.now(UTC),
+            finished_at=datetime.now(timezone.utc),
         )
 
     @classmethod

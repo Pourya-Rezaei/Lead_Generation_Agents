@@ -1,7 +1,7 @@
 import json
 import sqlite3
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from .models import Evidence, Observation
 

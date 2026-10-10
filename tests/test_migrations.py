@@ -1,6 +1,6 @@
 import json
 import sqlite3
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -17,6 +17,15 @@ FIXTURE = Path(__file__).parent / "fixtures" / "legacy_leads.sql"
 def legacy_database(path: Path) -> None:
     with sqlite3.connect(path) as connection:
         connection.executescript(FIXTURE.read_text(encoding="utf-8"))
+
+
+def test_campaign_membership_primary_key_uses_lead_id():
+    with sqlite3.connect(":memory:") as connection:
+        assert migrate(connection) == 17
+        columns = connection.execute("PRAGMA table_info(campaign_leads)").fetchall()
+        primary_key = [row[1] for row in sorted((row for row in columns if row[5]), key=lambda row: row[5])]
+        assert primary_key == ["campaign_id", "lead_id"]
+        assert "lead_dedup_key" not in {row[1] for row in columns}
 
 
 def test_legacy_upgrade_is_idempotent_and_preserves_payload(tmp_path):
@@ -102,8 +111,8 @@ def test_migration_rolls_back_on_failure(tmp_path, monkeypatch):
 def test_repositories_lifecycle_allowlist_purge_and_foreign_key(tmp_path):
     path = tmp_path / "repo.db"
     LeadStore(str(path))
-    old = datetime(2024, 1, 1, tzinfo=UTC)
-    cutoff = datetime(2024, 2, 1, tzinfo=UTC)
+    old = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    cutoff = datetime(2024, 2, 1, tzinfo=timezone.utc)
     with sqlite3.connect(path) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         runs = RunRepository(connection)

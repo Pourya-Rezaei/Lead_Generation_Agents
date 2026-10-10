@@ -1,6 +1,6 @@
 import json
 import sqlite3
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 import pytest
 from typer.testing import CliRunner
@@ -165,8 +165,8 @@ def test_cli_reports_returned_failed_result_as_failure(tmp_path, monkeypatch):
                 run_id="remote-run",
                 status=RunStatus.FAILED,
                 warnings=["Apify Actor finished with status failed"],
-                started_at=datetime(2025, 1, 1, tzinfo=UTC),
-                finished_at=datetime(2025, 1, 1, 0, 1, tzinfo=UTC),
+                started_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+                finished_at=datetime(2025, 1, 1, 0, 1, tzinfo=timezone.utc),
             )
 
     class ReturnedFailureRegistry(FailingRegistry):

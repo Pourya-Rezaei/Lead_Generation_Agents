@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import uuid
 from collections.abc import Callable
 
-CURRENT_SCHEMA_VERSION = 10
+CURRENT_SCHEMA_VERSION = 17
 
 
 def _table_columns(connection: sqlite3.Connection, table: str) -> set[str]:
@@ -206,7 +207,94 @@ def _migration_10(connection: sqlite3.Connection) -> None:
     connection.execute("CREATE INDEX IF NOT EXISTS idx_profile_review_candidate ON profile_review_audit(candidate_id, reviewed_at)")
 
 
-MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (_migration_1, _migration_2, _migration_3, _migration_4, _migration_5, _migration_6, _migration_7, _migration_8, _migration_9, _migration_10)
+def _migration_11(connection: sqlite3.Connection) -> None:
+    """Version cache entries by policy as well as mapper."""
+    if "execution_cache" in {
+        row[0] for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        )
+    } and "policy_version" not in _table_columns(connection, "execution_cache"):
+        connection.execute(
+            "ALTER TABLE execution_cache ADD COLUMN policy_version TEXT NOT NULL DEFAULT '1'"
+        )
+
+
+def _migration_12(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS lead_identities ("
+        "source TEXT NOT NULL, source_id TEXT NOT NULL, lead_id TEXT NOT NULL, "
+        "PRIMARY KEY (source, source_id), FOREIGN KEY (lead_id) REFERENCES leads(lead_id) ON DELETE CASCADE)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_lead_identities_lead_id ON lead_identities(lead_id)"
+    )
+    rows = connection.execute("SELECT lead_id, payload FROM leads").fetchall()
+    for lead_id, payload in rows:
+        try:
+            data = json.loads(payload)
+        except (TypeError, json.JSONDecodeError):
+            continue
+        source, source_id = data.get("source"), data.get("source_id")
+        if isinstance(source, str) and source and isinstance(source_id, str) and source_id:
+            connection.execute(
+                "INSERT OR IGNORE INTO lead_identities(source, source_id, lead_id) VALUES (?, ?, ?)",
+                (source, source_id, lead_id),
+            )
+
+
+def _migration_13(connection: sqlite3.Connection) -> None:
+    columns = _table_columns(connection, "campaign_leads")
+    if "lead_id" not in columns:
+        connection.execute("ALTER TABLE campaign_leads ADD COLUMN lead_id TEXT REFERENCES leads(lead_id) ON DELETE CASCADE")
+    connection.execute(
+        "UPDATE campaign_leads SET lead_id = (SELECT lead_id FROM leads WHERE leads.dedup_key = campaign_leads.lead_dedup_key) WHERE lead_id IS NULL"
+    )
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_campaign_leads_lead_id ON campaign_leads(lead_id)")
+
+
+def _migration_14(connection: sqlite3.Connection) -> None:
+    if "membership_snapshot" not in _table_columns(connection, "lead_merge_audit"):
+        connection.execute("ALTER TABLE lead_merge_audit ADD COLUMN membership_snapshot TEXT NOT NULL DEFAULT '[]'")
+
+
+def _migration_15(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS worker_heartbeats ("
+        "worker_id TEXT PRIMARY KEY, heartbeat_at TEXT NOT NULL)"
+    )
+
+
+def _migration_16(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        "CREATE TABLE campaign_leads_new ("
+        "campaign_id TEXT NOT NULL REFERENCES campaigns(campaign_id) ON DELETE RESTRICT, "
+        "lead_id TEXT NOT NULL REFERENCES leads(lead_id) ON DELETE CASCADE, "
+        "first_seen_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, "
+        "PRIMARY KEY (campaign_id, lead_id))"
+    )
+    connection.execute(
+        "INSERT INTO campaign_leads_new(campaign_id, lead_id, first_seen_at, last_seen_at) "
+        "SELECT campaign_id, lead_id, MIN(first_seen_at), MAX(last_seen_at) "
+        "FROM campaign_leads WHERE lead_id IS NOT NULL GROUP BY campaign_id, lead_id"
+    )
+    connection.execute("DROP TABLE campaign_leads")
+    connection.execute("ALTER TABLE campaign_leads_new RENAME TO campaign_leads")
+    connection.execute("CREATE INDEX idx_campaign_leads_lead_id ON campaign_leads(lead_id)")
+
+
+def _migration_17(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        "CREATE TABLE provider_attempts ("
+        "attempt_id TEXT PRIMARY KEY, job_id TEXT NOT NULL REFERENCES jobs(job_id) ON DELETE CASCADE, "
+        "source TEXT NOT NULL, status TEXT NOT NULL, provider_run_id TEXT, dataset_id TEXT, "
+        "checkpoint TEXT NOT NULL DEFAULT '{}', cancellation_requested INTEGER NOT NULL DEFAULT 0, "
+        "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, "
+        "UNIQUE(job_id, source))"
+    )
+    connection.execute("CREATE INDEX idx_provider_attempt_run ON provider_attempts(provider_run_id)")
+
+
+MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (_migration_1, _migration_2, _migration_3, _migration_4, _migration_5, _migration_6, _migration_7, _migration_8, _migration_9, _migration_10, _migration_11, _migration_12, _migration_13, _migration_14, _migration_15, _migration_16, _migration_17)
 
 
 def migrate(connection: sqlite3.Connection) -> int:

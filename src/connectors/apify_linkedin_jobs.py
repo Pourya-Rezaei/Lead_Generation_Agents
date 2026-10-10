@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from ..apify import ApifyClient
@@ -20,28 +20,63 @@ class ApifyLinkedInJobsConnector(Connector):
 
     @property
     def failure_metadata(self) -> dict[str, str]:
-        return {key: str(self.last_run[key]) for key in ("run_id", "dataset_id") if self.last_run.get(key)}
+        metadata: dict[str, str] = {}
+        if self.last_run.get("run_id"):
+            metadata["provider_run_id"] = str(self.last_run["run_id"])
+        if self.last_run.get("dataset_id"):
+            metadata["dataset_id"] = str(self.last_run["dataset_id"])
+        return metadata
+
+    def abort(self, run_id: str) -> dict[str, object]:
+        return self.client.abort_run(run_id)
+
+    def search_existing_run(self, run_id: str, query: str, limit: int = 20) -> SearchResult:
+        started = datetime.now(timezone.utc)
+        run = self.client.wait_for_run(run_id, timeout=300, poll_interval=2)
+        status = map_apify_status(str(run.get("status", "")))
+        dataset_id = run.get("defaultDatasetId") or run.get("datasetId")
+        self.last_run = {"run_id": run_id, "dataset_id": dataset_id}
+        if status is not RunStatus.SUCCEEDED or not dataset_id:
+            return SearchResult(source=self.source, run_id=run_id, dataset_id=str(dataset_id) if dataset_id else None, status=status, warnings=["LinkedIn Jobs Actor did not complete successfully"], started_at=started, finished_at=datetime.now(timezone.utc))
+        items = self.client.dataset_items(str(dataset_id))[:min(limit, 100)]
+        leads: list[Lead] = []
+        raw_records: list[dict[str, Any]] = []
+        for item in items:
+            lead = self._lead(item, query, "")
+            if lead is not None:
+                leads.append(lead)
+                raw_records.append(self._allowlist(item))
+        callback = getattr(self, "on_provider_run", None)
+        if callable(callback):
+            callback(self.source, run_id, str(dataset_id), status.value)
+        return SearchResult(source=self.source, run_id=run_id, dataset_id=str(dataset_id), status=status, leads=leads, raw_records=raw_records, started_at=started, finished_at=datetime.now(timezone.utc))
 
     def search(self, query: str, location: str, limit: int = 20) -> SearchResult:
-        started = datetime.now(UTC)
+        started = datetime.now(timezone.utc)
         if limit < 1:
             raise ValueError("limit must be positive")
         bounded_limit = min(limit, 100)
-        run = self.client.run_actor(
-            self.actor,
-            {
-                "keywords": query.strip(),
-                "location": location.strip(),
-                "maxResults": bounded_limit,
-                "scrapeDetails": True,
-                "scrapeCompany": False,
-            },
-            wait_for_finish=60,
-        )
-        run_id = str(run["id"])
+        actor_input = {
+            "keywords": query.strip(), "location": location.strip(),
+            "maxResults": bounded_limit, "scrapeDetails": True, "scrapeCompany": False,
+        }
+        if callable(getattr(type(self.client), "start_actor", None)):
+            run = self.client.start_actor(self.actor, actor_input, wait_for_finish=0)
+            run_id = str(run["id"])
+            self.last_run = {"run_id": run_id, "dataset_id": None}
+            callback = getattr(self, "on_provider_run", None)
+            if callable(callback):
+                callback(self.source, run_id, None, "running")
+            run = self.client.wait_for_run(run_id, timeout=300, poll_interval=2)
+        else:
+            run = self.client.run_actor(self.actor, actor_input, wait_for_finish=60)
+            run_id = str(run["id"])
         dataset_id = run.get("defaultDatasetId") or run.get("datasetId")
         status = map_apify_status(str(run.get("status", "SUCCEEDED")))
         self.last_run = {"run_id": run_id, "dataset_id": dataset_id}
+        callback = getattr(self, "on_provider_run", None)
+        if callable(callback):
+            callback(self.source, run_id, str(dataset_id) if dataset_id else None, status.value)
         if status is not RunStatus.SUCCEEDED or not dataset_id:
             return SearchResult(
                 source=self.source,
@@ -50,10 +85,16 @@ class ApifyLinkedInJobsConnector(Connector):
                 status=status,
                 warnings=["LinkedIn Jobs Actor did not complete successfully"],
                 started_at=started,
-                finished_at=datetime.now(UTC) if status is not RunStatus.RUNNING else None,
+                finished_at=datetime.now(timezone.utc) if status is not RunStatus.RUNNING else None,
             )
 
-        items = self.client.dataset_items(str(dataset_id))[:bounded_limit]
+        iterator = getattr(self.client, "iter_dataset_items", None)
+        try:
+            items = [item for page in iterator(str(dataset_id), max_items=bounded_limit) for item in page] if callable(iterator) else []
+        except (TypeError, AttributeError):
+            items = []
+        if not items:
+            items = self.client.dataset_items(str(dataset_id))[:bounded_limit]
         leads: list[Lead] = []
         raw_records: list[dict[str, Any]] = []
         discarded = 0
@@ -74,12 +115,12 @@ class ApifyLinkedInJobsConnector(Connector):
             raw_records=raw_records,
             warnings=warnings,
             started_at=started,
-            finished_at=datetime.now(UTC),
+            finished_at=datetime.now(timezone.utc),
         )
 
     @staticmethod
     def _allowlist(item: dict[str, Any]) -> dict[str, Any]:
-        allowed = ("jobId", "title", "companyName", "location", "salary", "description", "companyWebsite", "jobUrl")
+        allowed = ("jobId", "title", "companyName", "location", "salary", "description", "companyWebsite", "companyAddress", "jobUrl")
         return {key: item[key] for key in allowed if key in item}
 
     @classmethod
@@ -91,7 +132,8 @@ class ApifyLinkedInJobsConnector(Connector):
         try:
             lead = normalize(Lead(
                 name=name,
-                address=item.get("location") or location,
+                # A job's location is not evidence of the company's street address.
+                address=item.get("companyAddress") or "",
                 website=item.get("companyWebsite"),
                 category=query,
                 source=cls.source,
@@ -99,11 +141,16 @@ class ApifyLinkedInJobsConnector(Connector):
                 source_url=job_url,
                 field_evidence={
                     "name": ("linkedin:companyName",),
-                    "address": ("linkedin:location",),
                     "source_id": ("linkedin:jobId",),
                     "source_url": ("linkedin:jobUrl",),
+                    **({"address": ("linkedin:companyAddress",)} if item.get("companyAddress") else {}),
                 },
-                field_confidence={"name": 0.9, "address": 0.8, "source_id": 1.0, "source_url": 1.0},
+                field_confidence={
+                    "name": 0.9,
+                    "source_id": 1.0,
+                    "source_url": 1.0,
+                    **({"address": 0.9} if item.get("companyAddress") else {}),
+                },
             ))
         except (TypeError, ValueError):
             return None

@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from typer.testing import CliRunner
 
@@ -54,8 +54,8 @@ class FixedConnector:
             status=RunStatus.SUCCEEDED,
             leads=[Lead(name="North Cafe")],
             raw_records=[],
-            started_at=datetime(2025, 1, 1, tzinfo=UTC),
-            finished_at=datetime(2025, 1, 1, 0, 1, tzinfo=UTC),
+            started_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            finished_at=datetime(2025, 1, 1, 0, 1, tzinfo=timezone.utc),
         )
 
 

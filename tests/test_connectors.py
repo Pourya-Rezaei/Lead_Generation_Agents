@@ -30,6 +30,29 @@ def connector(run, dataset=None):
     return ApifyPlacesConnector(client=client), client
 
 
+def test_persists_actor_run_before_waiting_for_completion():
+    events = []
+
+    class LifecycleClient:
+        def start_actor(self, actor, input_data, *, wait_for_finish=0):
+            events.append(("start", wait_for_finish))
+            return {"id": "run-new", "status": "READY"}
+
+        def wait_for_run(self, run_id, *, timeout=300, poll_interval=2):
+            events.append(("wait", run_id))
+            return {"id": run_id, "defaultDatasetId": "ds-new", "status": "SUCCEEDED"}
+
+        def dataset_items(self, dataset_id):
+            return [{"title": "Cafe", "address": "A St"}]
+
+    places = ApifyPlacesConnector(client=LifecycleClient())
+    places.on_provider_run = lambda source, run_id, dataset_id, state: events.append(("persist", run_id, state))
+    result = places.search("cafe", "town")
+    assert result.run_id == "run-new"
+    assert events[:3] == [("start", 0), ("persist", "run-new", "running"), ("wait", "run-new")]
+    assert events[-1] == ("persist", "run-new", "succeeded")
+
+
 def test_resumes_existing_run_without_starting_actor():
     places, client = connector(
         {"id": "run-previous", "defaultDatasetId": "ds-previous", "status": "SUCCEEDED"},

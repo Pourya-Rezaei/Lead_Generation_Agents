@@ -31,7 +31,7 @@
 
 هر Lead اکنون یک `lead_id` پایدار مستقل از تغییر نام، آدرس یا تلفن دارد. جدول append-only `observations` منبع، source record ID، Run، زمان گردآوری و فیلدهای مشاهده‌شده را نگه می‌دارد و `field_evidence` شواهد هر فیلد را ثبت می‌کند. migration نسخهٔ ۳ برای دیتابیس تازه و legacy idempotent است و در failure rollback می‌شود.
 
-برای سازگاری، `campaign_leads` و export پیش‌فرض فعلاً از کلید legacy استفاده می‌کنند؛ تغییر کامل membership به `lead_id` در migration جداگانه و پس از بررسی دادهٔ واقعی انجام می‌شود. `lead_id` در upsert با source/source_id ثابت می‌ماند، حتی اگر تلفن یا فیلدهای mutable تغییر کند.
+در schema v17، `campaign_leads` به کلید اصلی `(campaign_id, lead_id)` مهاجرت کرده و `lead_dedup_key` از membership حذف شده است؛ upsert می‌تواند کلید dedup را بدون بازنویسی عضویت تغییر دهد. `lead_id` در upsert با source/source_id ثابت می‌ماند، حتی اگر تلفن یا فیلدهای mutable تغییر کند.
 
 ## کیفیت و provenance
 

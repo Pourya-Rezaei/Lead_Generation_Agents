@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 import pytest
 from pydantic import ValidationError
@@ -39,7 +39,7 @@ def test_executor_receives_selected_capabilities_and_preserves_platform_results(
         platform="instagram",
         status=RunStatus.SUCCEEDED,
         observations=[PlatformObservation(platform="instagram", profile_url="https://instagram.com/cafe", name="Cafe", source="instagram")],
-        finished_at=datetime.now(UTC),
+        finished_at=datetime.now(timezone.utc),
     )
     seen = {}
 

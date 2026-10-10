@@ -1,6 +1,6 @@
 import sqlite3
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -43,7 +43,7 @@ class LeadStore:
         metadata: dict[str, Any],
         raw_records: list[dict[str, Any]] | None = None,
     ) -> None:
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         run_id = metadata.get("run_id") or f"local-{now.isoformat()}"
         status = str(metadata.get("status", "succeeded")).lower().replace("-", "_")
         payload = {**metadata, "run_id": run_id, "recorded_at": now.isoformat()}
@@ -87,7 +87,7 @@ class LeadStore:
         query: str,
         location: str,
     ) -> UpsertSummary:
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         run_id = result.run_id or f"local-{uuid.uuid4()}"
         status = result.status.value
         metadata = {
@@ -119,6 +119,7 @@ class LeadStore:
                 RunStatus.TIMED_OUT.value,
             }
             summary = UpsertSummary()
+            observation_ids: list[str] = []
             if not failed:
                 summary = LeadRepository(db).upsert(result.leads)
                 quality = QualityRepository(db)
@@ -126,7 +127,8 @@ class LeadStore:
                     campaigns.add_lead(campaign_id, lead.dedup_key(), seen_at=now)
                     row = db.execute("SELECT lead_id FROM leads WHERE dedup_key = ?", (lead.dedup_key(),)).fetchone()
                     if row is not None:
-                        quality.record_lead_observation(row[0], lead, run_id=run_id)
+                        observation = quality.record_lead_observation(row[0], lead, run_id=run_id)
+                        observation_ids.append(observation.observation_id)
                 RawRecordRepository(db).save_allowlisted(
                     run_id, result.raw_records, recorded_at=now
                 )
@@ -146,7 +148,13 @@ class LeadStore:
                     status=status,
                     finished_at=result.finished_at,
                 )
-        return summary
+        return UpsertSummary(
+            inserted=summary.inserted,
+            updated=summary.updated,
+            lead_ids=summary.lead_ids,
+            observation_ids=tuple(observation_ids),
+            raw_record_refs=tuple((run_id, index) for index in range(len(result.raw_records))),
+        )
 
     def record_failed_search(
         self,
@@ -160,7 +168,7 @@ class LeadStore:
         started_at: datetime,
         failure_metadata: dict[str, str] | None = None,
     ) -> str:
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         run_id = f"local-{uuid.uuid4()}"
         metadata = {
             "run_id": run_id,

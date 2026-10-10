@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 import sqlite3
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from src.domain import Campaign, Lead
 from src.errors import (
@@ -85,8 +85,8 @@ def test_lead_can_belong_to_multiple_campaigns_and_membership_upsert_is_idempote
     campaigns.create("Two", campaign_id="two")
     lead = Lead(name="Cafe", address="Main Street")
     LeadRepository(connection).upsert([lead])
-    first = datetime(2025, 1, 1, tzinfo=UTC)
-    later = datetime(2025, 1, 3, tzinfo=UTC)
+    first = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    later = datetime(2025, 1, 3, tzinfo=timezone.utc)
     campaigns.add_lead("one", lead.dedup_key(), seen_at=first)
     campaigns.add_lead("one", lead.dedup_key(), seen_at=later)
     campaigns.add_lead("two", lead.dedup_key(), seen_at=first)
@@ -106,8 +106,8 @@ def _search_result(*, leads=None, status=RunStatus.SUCCEEDED, raw_records=None):
         partial=status is RunStatus.PARTIAL,
         leads=(leads if leads is not None else [Lead(name="Cafe One", address="Main"), Lead(name="Cafe Two", address="Broadway")]),
         raw_records=(raw_records if raw_records is not None else [{"title": "Cafe One", "private": "excluded"}]),
-        started_at=datetime(2025, 1, 1, tzinfo=UTC),
-        finished_at=datetime(2025, 1, 1, 0, 1, tzinfo=UTC),
+        started_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        finished_at=datetime(2025, 1, 1, 0, 1, tzinfo=timezone.utc),
     )
 
 

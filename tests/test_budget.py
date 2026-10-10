@@ -27,6 +27,15 @@ def test_unknown_cost_keeps_reservation():
             repo.reserve("job-2", "search", Decimal("0.60"), "usd", Decimal("1.00"))
 
 
+def test_sub_cent_cost_is_not_rounded_to_zero():
+    with sqlite3.connect(":memory:") as db:
+        migrate(db)
+        repo = BudgetRepository(db)
+        reservation = repo.reserve("job-1", "places", Decimal("0.0008"), "usd", Decimal("0.0010"))
+        assert reservation.amount == Decimal("0.0008")
+        assert db.execute("SELECT amount_minor FROM budget_reservations").fetchone()[0] == 800
+
+
 def test_currency_is_normalized():
     with sqlite3.connect(":memory:") as db:
         migrate(db)

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 import pytest
 from pydantic import ValidationError
@@ -32,7 +32,7 @@ def test_failed_result_cannot_contain_leads() -> None:
             source="places",
             status=RunStatus.FAILED,
             leads=[Lead(name="Acme")],
-            finished_at=datetime.now(UTC),
+            finished_at=datetime.now(timezone.utc),
         )
 
 
@@ -43,7 +43,7 @@ def test_partial_result_is_explicit() -> None:
         partial=True,
         leads=[Lead(name="Acme")],
         warnings=["Actor did not finish before the wait deadline"],
-        finished_at=datetime.now(UTC),
+        finished_at=datetime.now(timezone.utc),
     )
     assert result.partial is True
     assert result.leads[0].name == "Acme"
@@ -55,5 +55,5 @@ def test_partial_flag_must_match_status() -> None:
             source="places",
             status=RunStatus.SUCCEEDED,
             partial=True,
-            finished_at=datetime.now(UTC),
+            finished_at=datetime.now(timezone.utc),
         )

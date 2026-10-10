@@ -10,7 +10,7 @@
 
 ## صف اجرای محلی
 
-در فاز B، جدول `jobs` primitive صف محلی را فراهم می‌کند: ارسال تکراری با `idempotency_key` همان Job را برمی‌گرداند، Jobهای queued قابل claim توسط یک worker هستند و lease/fencing برای recovery اولیه ثبت می‌شود. handler مربوط به Places اکنون request را به `SearchLeadsService` موجود متصل می‌کند؛ اگر request شامل `estimated_cost` و `max_cost` باشد، worker پیش از handler رزرو اتمیک می‌گیرد و پس از اجرا هزینه را محافظه‌کارانه `unknown` نگه می‌دارد تا provider reconciliation انجام شود. اجرای unattended کامل همچنان به daemon worker و recovery provider-level نیاز دارد.
+در فاز B، جدول `jobs` primitive صف محلی را فراهم می‌کند: ارسال تکراری با `idempotency_key` همان Job را برمی‌گرداند، Jobهای queued قابل claim توسط یک worker هستند و lease/fencing برای recovery اولیه ثبت می‌شود. handler مربوط به Places اکنون request را به `SearchLeadsService` متصل می‌کند؛ اگر request شامل `estimated_cost` و `max_cost` باشد، worker پیش از اجرا رزرو اتمیک می‌گیرد. Attemptهای provider شامل run/dataset، وضعیت و checkpoint در SQLite ثبت می‌شوند؛ runهای شناخته‌شده resume یا abort می‌شوند و پنجرهٔ نامشخص start به `needs_review` می‌رسد. Jobها هنوز باید با یک worker process مدیریت‌شده اجرا شوند؛ CI matrix پایتون نیز تا اجرای workflow در GitHub remote تأیید نهایی نمی‌شود.
 
 ## اجرای پنل وب محلی
 
@@ -56,6 +56,8 @@ SQLite database          -> test-phase2.db (48K)
 ## Production hardening
 
 - `GET /health/live` is a content-free liveness check.
-- `GET /health/ready` verifies database connectivity and returns `503` with the stable code `database_unavailable` when readiness fails.
+- `GET /health/ready` verifies that the existing SQLite file and required schema tables are readable; it never creates an empty database. It returns `503` with a stable database/schema code when readiness fails. The local web app reports `worker: "not_required"` because CLI workers are separate processes.
+- CLI workers renew their SQLite lease through a separate heartbeat connection during long-running handlers; losing the fencing lease prevents stale result persistence.
 - The worker recovers expired leases before claiming new work. Fencing tokens prevent stale workers from updating reclaimed jobs.
 - `JobWorker.stop()` provides cooperative shutdown and prevents new claims after the stop signal.
+- Jobs in `needs_review` are listed with their persisted provider attempts at `GET /api/jobs/{job_id}`. Resolve them with `POST /api/jobs/{job_id}/resolve`: `attach_run` links a run found in the provider console and resumes it; `retry` requires `confirmed_no_remote_run: true` after checking Apify; `abandon` marks the job cancelled. Never choose retry unless the provider console confirms no run was created.

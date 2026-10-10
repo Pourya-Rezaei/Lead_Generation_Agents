@@ -18,19 +18,19 @@
 - جلوگیری از ذخیرهٔ Lead و raw record برای Run شکست‌خورده
 - خروجی JSON و CSV سراسری یا محدود به Campaign
 - ساخت خودکار پوشهٔ مقصد export
-- تست‌های unit و integration کاملاً mock شده
+- تست‌های unit و integration کاملاً mock شده؛ ماتریس محلی Python 3.10 تا 3.14 با ۱۹۷ تست موفق در هر نسخه
 - CLI فعال: `search`، `campaign create/list/show` و `export`
 - پنل وب محلی فارسی و راست‌به‌چپ با FastAPI/Jinja، CSS responsive و مسیرهای مدیریت Campaign، جست‌وجو و export
 - اجرای پنل فقط روی `127.0.0.1`؛ بدون احراز هویت و دسترسی شبکه‌ای در MVP
 - orchestration چندمنبعی برای Google Places و Google Search با حفظ نتیجهٔ partial
 - نمایش و انتخاب منابع در UI؛ منابع اجتماعی غیرفعال با contract gate باقی می‌مانند
 - API idempotent برای ایجاد Job چندمنبعی و handler سازگار با Worker
-- تاریخچهٔ اجرا و صفحهٔ جزئیات Job در پنل وب
+- تاریخچهٔ اجرا و صفحهٔ جزئیات Job در پنل وب، همراه با لغو/بازیابی Apify و رسیدگی دستی به `needs_review`
 - polling خودکار progress، نمایش وضعیت منابع و اجرای مجدد Jobهای شکست‌خورده یا partial
 - صفحهٔ بازبینی پروفایل‌های عمومی در `/profiles/{lead_id}`
 - صفحهٔ وضعیت منابع و contract gateها در `/sources` و `/api/source-contracts`
 - endpoint امن activation request که تا تکمیل schema gate هیچ Actor پولی را فعال نمی‌کند
-- تست کامل فعلی: `167 passed`
+- تست کامل محلی: `197 passed` روی هرکدام از Python 3.10، 3.11، 3.12، 3.13 و 3.14؛ اجرای remote در GitHub Actions هنوز انجام نشده است
 
 منبع `web` و Connectorهای Instagram و TikTok فعال نیستند. LinkedIn Jobs برای اجرای کنترل‌شده در کمپین‌ها فعال شده و در رابط وب قابل انتخاب است.
 - `ConnectorRegistry.capabilities()` و `SearchLeadsService.source_capabilities()` descriptor قابلیت‌ها را بدون اجرای Actor ارائه می‌کنند؛ `select_sources([...])` انتخاب چند منبع را پیش از ساخت Connector اعتبارسنجی می‌کند و برای منبع غیرفعال خطای امن می‌دهد.

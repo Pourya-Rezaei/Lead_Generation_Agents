@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from unittest.mock import Mock
 
 import pytest
@@ -29,11 +29,37 @@ def fake_service(tmp_path):
     service.search.return_value = SearchResult(
         source="places",
         status=RunStatus.SUCCEEDED,
-        started_at=datetime.now(UTC),
-        finished_at=datetime.now(UTC),
+        started_at=datetime.now(timezone.utc),
+        finished_at=datetime.now(timezone.utc),
     )
     app = create_app(Settings(database_path=database), store=store, service=service)
     return TestClient(app), service
+
+
+def test_importing_app_module_does_not_create_database(tmp_path):
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    project_root = str(Path(__file__).resolve().parents[1])
+    env = dict(os.environ, PYTHONPATH=project_root)
+    subprocess.run(
+        [sys.executable, "-c", "import src.web.app"],
+        cwd=tmp_path,
+        env=env,
+        check=True,
+    )
+    assert not (tmp_path / "leads.db").exists()
+    database = tmp_path / "uvicorn.db"
+    uvicorn_env = dict(env, DATABASE_PATH=str(database))
+    subprocess.run(
+        [sys.executable, "-c", "from uvicorn.importer import import_from_string; assert import_from_string('src.web.app:app')"],
+        cwd=tmp_path,
+        env=uvicorn_env,
+        check=True,
+    )
+    assert database.exists()
 
 
 def test_create_app_registers_web_routes(tmp_path):

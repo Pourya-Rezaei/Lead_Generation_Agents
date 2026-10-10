@@ -1,5 +1,9 @@
 # معماری
 
+## وضعیت hardening فعلی
+
+SQLite منبع اصلی محلی است. Jobها با claim اتمیک، fencing و heartbeat اجرا می‌شوند؛ cache فقط با mapper/policy version و referenceهای پایدار replay می‌شود؛ identity index و campaign `lead_id` در migrationهای افزایشی فعال‌اند؛ merge/undo snapshot ممیزی دارد؛ backup/restore و maintenance به‌صورت helperهای کنترل‌شده ارائه می‌شوند. lifecycle کامل provider و حذف نهایی کلید legacy campaign هنوز در حال تکمیل است.
+
 این سند snapshot معماری اجرایی فعلی پروژه است؛ یعنی علاوه بر مسیر قدیمی synchronous، مسیر Job/Worker، انتخاب چندمنبع، کنترل هزینه و بازبینی پروفایل عمومی را نیز نشان می‌دهد. وضعیت قابلیت‌ها باید با `ConnectorRegistry.capabilities()` و contract gateها هماهنگ بماند.
 
 ## نمودار معماری و جریان داده
@@ -43,7 +47,7 @@ flowchart LR
     BUDGET --> JOBDB
 
     PERSIST --> DB[(SQLite)]
-    DB --> TABLES["leads / campaigns / campaign_leads<br/>runs / raw_records / observations<br/>field_evidence / profiles / jobs / budget"]
+    DB --> TABLES["leads / campaigns / campaign_leads (campaign_id, lead_id)<br/>runs / raw_records / observations<br/>field_evidence / profiles / jobs / provider_attempts / budget"]
     DB --> EXPORT["Exporters"]
     EXPORT --> JSON["JSON"]
     EXPORT --> CSV["CSV"]

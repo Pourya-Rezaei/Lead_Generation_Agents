@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,7 +19,7 @@ def populated_client(tmp_path):
         source="places",
         status=RunStatus.SUCCEEDED,
         leads=[Lead(name="Example Clinic", address="Tehran")],
-        finished_at=datetime.now(UTC),
+        finished_at=datetime.now(timezone.utc),
     )
     store.persist_search_result("general", result, "clinic", "Tehran")
     return TestClient(create_app(Settings(database_path=database), store=store))

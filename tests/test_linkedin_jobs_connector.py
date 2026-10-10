@@ -54,3 +54,14 @@ def test_linkedin_jobs_discards_missing_company_and_non_successful_runs():
     result = ApifyLinkedInJobsConnector("token", client=client).search("engineer", "Berlin", 5)
     assert result.status is RunStatus.FAILED
     client.dataset_items.assert_called_once()
+
+
+def test_linkedin_jobs_resumes_persisted_run_without_starting_actor():
+    client = Mock()
+    client.wait_for_run.return_value = {"id": "persisted-run", "status": "SUCCEEDED", "defaultDatasetId": "ds-4"}
+    client.dataset_items.return_value = [{"jobId": "job-4", "title": "Engineer", "companyName": "Example"}]
+    result = ApifyLinkedInJobsConnector("token", client=client).search_existing_run("persisted-run", "engineer", 5)
+    assert result.run_id == "persisted-run"
+    assert len(result.leads) == 1
+    client.wait_for_run.assert_called_once_with("persisted-run", timeout=300, poll_interval=2)
+    client.run_actor.assert_not_called()

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pathlib import Path
+from datetime import datetime, timezone
 import sqlite3
 from tempfile import NamedTemporaryFile
 
@@ -27,12 +28,40 @@ def health_live():
 
 @router.get("/health/ready")
 def health_ready(request: Request):
+    database_path = Path(request.app.state.settings.database_path)
+    if not database_path.exists():
+        raise HTTPException(status_code=503, detail={"code": "database_unavailable"})
     try:
-        with sqlite3.connect(request.app.state.settings.database_path) as connection:
-            connection.execute("SELECT 1").fetchone()
+        with sqlite3.connect(f"file:{database_path}?mode=ro", uri=True) as connection:
+            tables = {
+                row[0]
+                for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                )
+            }
+            required = {"leads", "jobs", "schema_metadata"}
+            if not required.issubset(tables):
+                raise HTTPException(status_code=503, detail={"code": "database_schema_unavailable"})
+            version = connection.execute(
+                "SELECT value FROM schema_metadata WHERE key = 'schema_version'"
+            ).fetchone()
+            if version is None:
+                raise HTTPException(status_code=503, detail={"code": "database_schema_unavailable"})
+    except HTTPException:
+        raise
     except sqlite3.Error:
         raise HTTPException(status_code=503, detail={"code": "database_unavailable"})
-    return {"status": "ready", "database": True, "worker": True}
+    with sqlite3.connect(f"file:{database_path}?mode=ro", uri=True) as heartbeat_connection:
+        heartbeat = heartbeat_connection.execute(
+            "SELECT heartbeat_at FROM worker_heartbeats ORDER BY heartbeat_at DESC LIMIT 1"
+        ).fetchone()
+    worker = False
+    if heartbeat is not None:
+        try:
+            worker = (datetime.now(timezone.utc) - datetime.fromisoformat(heartbeat[0]).replace(tzinfo=timezone.utc)).total_seconds() <= 120
+        except ValueError:
+            worker = False
+    return {"status": "ready", "database": True, "worker": worker if heartbeat else "not_required"}
 
 
 @router.post("/api/social-searches/preview")
@@ -107,7 +136,38 @@ def api_job_status(request: Request, job_id: str):
     job = JobService(request.app.state.settings.database_path).get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
-    return {"job_id": job.job_id, "state": job.state, "progress": job.progress, "error_code": job.error_code}
+    service = JobService(request.app.state.settings.database_path)
+    return {
+        "job_id": job.job_id, "state": job.state, "progress": job.progress,
+        "error_code": job.error_code, "provider_attempts": service.provider_attempts(job_id),
+    }
+
+
+@router.post("/api/jobs/{job_id}/resolve")
+def api_resolve_job_review(request: Request, job_id: str, payload: dict):
+    from ..execution.service import JobService
+    action = payload.get("action")
+    source = payload.get("source")
+    if action == "attach_run":
+        if not isinstance(source, str):
+            raise HTTPException(status_code=422, detail="source is required to attach a run")
+        try:
+            request.app.state.service.registry.validate_source(source)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="source is invalid") from None
+    try:
+        job = JobService(request.app.state.settings.database_path).resolve_needs_review(
+            job_id,
+            action,
+            source=source if isinstance(source, str) else None,
+            provider_run_id=payload.get("provider_run_id") if isinstance(payload.get("provider_run_id"), str) else None,
+            confirmed_no_remote_run=payload.get("confirmed_no_remote_run") is True,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"job_id": job.job_id, "state": job.state, "progress": job.progress}
 
 
 @router.post("/api/jobs/{job_id}/retry")
@@ -128,7 +188,9 @@ def api_retry_job(request: Request, job_id: str):
 @router.post("/api/jobs/{job_id}/cancel")
 def api_cancel_job(request: Request, job_id: str):
     from ..execution.service import JobService
-    job = JobService(request.app.state.settings.database_path).cancel(job_id)
+    job = JobService(request.app.state.settings.database_path).cancel(
+        job_id, abort_provider_run=request.app.state.service.abort_provider_run
+    )
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     return {"job_id": job.job_id, "state": job.state}

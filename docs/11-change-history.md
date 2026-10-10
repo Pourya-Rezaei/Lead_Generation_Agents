@@ -1,5 +1,40 @@
 # تاریخچه تغییرات و وضعیت فعلی پروژه
 
+## تکمیل lifecycle و lineage پایدار (2026-10-10)
+
+- schema به نسخهٔ 17 رسید: campaign membership اکنون فقط `(campaign_id, lead_id)` دارد و provider attempts هویت run/dataset، وضعیت، checkpoint و cancellation را پایدار نگه می‌دارند.
+- Connectorها start بدون انتظار طولانی انجام می‌دهند؛ run ID بلافاصله persist می‌شود، resume از همان run صورت می‌گیرد، و abort واقعی از cancellation API فراخوانی می‌شود. crash در نامعلوم بودن پاسخ start به `needs_review` می‌رسد.
+- Cache refs شامل observation و raw-record references شده و replay وجود همهٔ lineage را پیش از موفقیت بررسی می‌کند؛ retention وابستگی‌های cache فعال و observation را حفظ می‌کند.
+- تست‌های process-level چند worker و بازیابی crash افزوده شدند؛ import ماژول اپلیکیشن دیگر دیتابیس را به‌صورت eager نمی‌سازد.
+- roadmap، مدل داده، راهنمای عملیات و مستندات Apify با رفتار جدید همگام شدند. اجرای کامل محلی روی Python 3.10 تا 3.14 در هر نسخه `197 passed` داشت؛ اجرای remote در GitHub Actions هنوز نیازمند remote repository است. هیچ Actor پولی برای این بررسی اجرا نشده است.
+
+## اصلاح مالکیت Job، وضعیت اجرا و هویت LinkedIn (2026-10-10)
+
+- claim صف با `BEGIN IMMEDIATE`، بررسی `rowcount` و commit پیش از اجرای handler اتمیک شد؛ fencing و mutationهای provider/progress نیز از مالکیت معتبر دفاع می‌کنند.
+- orchestration اکنون status واقعی `SearchResult` را مصرف می‌کند و اجرای pending/running را موفقیت کاذب گزارش نمی‌کند؛ worker برای نتایج غیرترمینال دوباره queued می‌شود.
+- cache فقط نتیجهٔ موفق و mapper version منطبق را می‌پذیرد؛ هزینه‌ها با micro-unit ذخیره می‌شوند تا مبالغ زیر یک سنت صفر نشوند.
+- در LinkedIn Jobs، location آگهی دیگر به‌عنوان آدرس دقیق شرکت ذخیره نمی‌شود؛ فقط `companyAddress` معتبر می‌تواند address باشد و evidence/confidence برای فیلد غایب تولید نمی‌شود.
+- CLI worker اکنون همان DB درخواست را به service متصل می‌کند و برای jobs چندمنبعی dispatcher مشترک را به‌کار می‌برد؛ idempotency key با payload متفاوت رد می‌شود.
+- importهای زمان به `timezone.utc` منتقل شدند تا شرط Python `>=3.10` با کد واقعی سازگار بماند.
+- Google Search و LinkedIn Jobs از iterator صفحه‌ای dataset استفاده می‌کنند و فقط در clientهای قدیمی به مسیر legacy fallback دارند؛ بنابراین limit قبل از جمع‌آوری کامل اعمال می‌شود.
+- reservation و reconciliation بودجه داخل transaction `BEGIN IMMEDIATE` انجام می‌شوند تا چند worker محلی نتوانند هم‌زمان از quota عبور کنند.
+- cache summary بدون reference به `lead_ids` دیگر باعث success کاذب نمی‌شود؛ فقط cacheهای قابل replay که به دادهٔ پایدار اشاره دارند مجاز به cache hit هستند.
+- schema به نسخهٔ 11 رسید و cache علاوه بر mapper، `policy_version` را نیز اعتبارسنجی می‌کند تا تغییر policy باعث replay دادهٔ قدیمی نشود.
+- `UpsertSummary` اکنون `lead_ids` واقعی را برمی‌گرداند؛ service آن‌ها را همراه run/campaign در `persisted_refs` به worker و cache منتقل می‌کند، بنابراین cache hit قابل replay به persistence متصل است.
+- cache replay اکنون پیش از success، وجود campaign، run ترمینال موفق/partial و همهٔ leadهای referenced را بررسی و membership همان campaign را به‌صورت idempotent بازسازی می‌کند؛ cache orphan یا بدون lineage به handler fallback می‌شود.
+- schema به نسخهٔ 12 رسید و جدول `lead_identities` برای lookup ایندکس‌شدهٔ `(source, source_id)` اضافه شد؛ upsert دیگر برای source identity به full-table scan وابسته نیست.
+- schema به نسخهٔ 13 رسید و `campaign_leads.lead_id` به‌صورت additive اضافه و برای رکوردهای قدیمی backfill شد؛ membershipهای جدید از این پس هم dedup legacy و هم `lead_id` پایدار را نگه می‌دارند.
+- schema به نسخهٔ 14 رسید؛ merge و undo اکنون transaction اتمیک دارند، membershipهای هم‌پوشان را بدون خطای uniqueness ادغام می‌کنند و snapshot دقیق campaign membership را برای undo نگه می‌دارند.
+- provider run ID در handler از نتیجهٔ همان invocation خوانده می‌شود، نه state mutable مشترک service.
+- helperهای backup/restore SQLite با `integrity_check` و `foreign_key_check` اضافه شدند و مسیرهای static/template وب به ریشهٔ پروژه مستقل از cwd متصل شدند.
+- schema به نسخهٔ 15 رسید و worker heartbeat در SQLite ثبت می‌شود؛ readiness زمان آخرین heartbeat معتبر را گزارش می‌کند.
+- عملیات maintenance محدود و dry-run برای cache منقضی و raw records قدیمی اضافه شد.
+- workflow تست CI با matrix نسخه‌های Python 3.10 تا 3.14 اضافه شد.
+- connectorهای Apify متد abort مشترک دارند و service می‌تواند run موجود را از طریق endpoint رسمی abort کند؛ resume قبلی همچنان از `search_existing_run` استفاده می‌کند.
+- maintenance برای purge runهای قدیمی فقط وقتی مجاز است که raw lineage وابسته نداشته باشند؛ retention با dry-run انجام می‌شود.
+- تست‌های اجرای Job، بودجه، orchestration، recovery و connector اجرا شدند؛ هیچ Actor پولی در این تغییرات فراخوانی نشد.
+
+
 ## به‌روزرسانی index حافظهٔ کد (2026-10-10)
 
 - index پایدار CBM پس از اضافه‌شدن تغییرات جدید پروژه دوباره ساخته شد.

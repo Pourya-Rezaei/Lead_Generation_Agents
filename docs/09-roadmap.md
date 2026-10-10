@@ -1,5 +1,17 @@
 # نقشه راه
 
+## وضعیت اجرایی فعلی (2026-10-10)
+
+- schema فعلی SQLite: نسخهٔ 15.
+- آخرین validation آفلاین: 184 تست موفق؛ یک warning dependency مربوط به Starlette/httpx.
+- تکمیل‌شده در hardening: atomic claim، heartbeat/fencing، budget transaction، cache replay با lead/observation/raw-record lineage، identity index، campaign membership با کلید اصلی `(campaign_id, lead_id)`، merge/undo snapshot، backup/restore، retention با حفاظت lineage، readiness schema/heartbeat، process-level worker/crash tests و CI matrix Python 3.10 تا 3.14.
+- Lifecycle provider پایدار اکنون run attempt را هنگام دریافت run ID ثبت می‌کند، resume را از همان run انجام می‌دهد، cancellation مسیر abort را اجرا می‌کند و حالت crash در بازهٔ شروع Actor را به `needs_review` می‌برد؛ resolution دستی با attach-run، retry همراه تأیید نبود run، یا abandon در API موجود است.
+- ماتریس تست محلی Python 3.10 تا 3.14 با موفقیت اجرا شده است؛ workflow GitHub Actions نیز برای نصب وابستگی‌های test از `.[test]` استفاده می‌کند. اجرای remote همچنان نیازمند اتصال repository به GitHub است.
+- backup/restore و maintenance dry-run روی یک کپی موقت از دیتابیس محلی اجرا و integrity/FK check شد؛ هیچ تغییری روی دیتابیس اصلی اعمال نشد. اجرای live Actor عمداً انجام نشد.
+- Import کردن `src.web.app` دیگر دیتابیس نمی‌سازد؛ اجرای Uvicorn از همان ماژول با lazy ASGI attribute سازگار نگه داشته شده است.
+- هیچ Actor پولی بخشی از suite عادی نیست؛ smoke زنده باید دستی و opt-in اجرا شود.
+
+
 این نقشه راه وضعیت واقعی پروژه را از کارهای انجام‌شده و باقی‌مانده جدا می‌کند.
 
 ## تکمیل‌شده: هستهٔ MVP و Campaignها

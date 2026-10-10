@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any, Iterable
 
 from .domain import Campaign, CampaignStats, Lead
@@ -20,6 +20,9 @@ from .errors import (
 class UpsertSummary:
     inserted: int = 0
     updated: int = 0
+    lead_ids: tuple[str, ...] = ()
+    observation_ids: tuple[str, ...] = ()
+    raw_record_refs: tuple[tuple[str, int], ...] = ()
 
     @property
     def total(self) -> int:
@@ -48,7 +51,7 @@ class CampaignRepository:
         normalized_id = campaign_id.strip() if campaign_id is not None else normalized_name.lower().replace(" ", "-")
         if not normalized_id:
             raise ValueError("campaign ID must not be empty")
-        created_at = datetime.now(UTC).isoformat()
+        created_at = datetime.now(timezone.utc).isoformat()
         try:
             self.connection.execute(
                 "INSERT INTO campaigns(campaign_id, name, description, is_default, created_at) "
@@ -106,7 +109,7 @@ class CampaignRepository:
         if self.get(campaign_id) is None:
             raise CampaignNotFoundError(f"campaign not found: {campaign_id}")
         row = self.connection.execute(
-            "SELECT COUNT(DISTINCT cl.lead_dedup_key), "
+            "SELECT COUNT(DISTINCT cl.lead_id), "
             "(SELECT COUNT(*) FROM runs WHERE campaign_id = ?) "
             "FROM campaign_leads cl WHERE cl.campaign_id = ?",
             (campaign_id, campaign_id),
@@ -119,11 +122,15 @@ class CampaignRepository:
 
     def add_lead(self, campaign_id: str, lead_dedup_key: str, *, seen_at: datetime | str | None = None) -> None:
         timestamp = self._timestamp(seen_at)
+        lead = self.connection.execute(
+            "SELECT lead_id FROM leads WHERE dedup_key = ?", (lead_dedup_key,)
+        ).fetchone()
+        lead_id = lead[0] if lead else lead_dedup_key
         self.connection.execute(
-            "INSERT INTO campaign_leads(campaign_id, lead_dedup_key, first_seen_at, last_seen_at) "
-            "VALUES (?, ?, ?, ?) ON CONFLICT(campaign_id, lead_dedup_key) DO UPDATE "
+            "INSERT INTO campaign_leads(campaign_id, lead_id, first_seen_at, last_seen_at) "
+            "VALUES (?, ?, ?, ?) ON CONFLICT(campaign_id, lead_id) DO UPDATE "
             "SET last_seen_at = excluded.last_seen_at",
-            (campaign_id, lead_dedup_key, timestamp, timestamp),
+            (campaign_id, lead_id, timestamp, timestamp),
         )
 
     def add_leads(self, campaign_id: str, leads: Iterable[Lead], *, seen_at: datetime | str | None = None) -> None:
@@ -138,26 +145,30 @@ class LeadRepository:
 
     def upsert(self, leads: Iterable[Lead]) -> UpsertSummary:
         inserted = updated = 0
+        lead_ids: list[str] = []
         for lead in leads:
             key = lead.dedup_key()
             existing = self.connection.execute(
                 "SELECT dedup_key, lead_id, payload FROM leads WHERE dedup_key = ?", (key,)
             ).fetchone()
             if existing is None and lead.source and lead.source_id:
-                for candidate_key, candidate_id, payload in self.connection.execute(
-                    "SELECT dedup_key, lead_id, payload FROM leads"
-                ):
-                    old = Lead.model_validate_json(payload)
-                    if old.source == lead.source and old.source_id == lead.source_id:
-                        existing = (candidate_key, candidate_id, payload)
-                        break
+                identity = self.connection.execute(
+                    "SELECT l.dedup_key, l.lead_id, l.payload FROM lead_identities i "
+                    "JOIN leads l ON l.lead_id = i.lead_id WHERE i.source = ? AND i.source_id = ?",
+                    (lead.source, lead.source_id),
+                ).fetchone()
+                if identity is not None:
+                    existing = identity
             if existing is not None and existing[0] != key:
-                self.connection.execute(
-                    "UPDATE campaign_leads SET lead_dedup_key = ? WHERE lead_dedup_key = ?",
-                    (key, existing[0]),
-                )
                 self.connection.execute("UPDATE leads SET dedup_key = ?, payload = ? WHERE dedup_key = ?", (key, lead.model_dump_json(), existing[0]))
                 updated += 1
+                lead_ids.append(str(existing[1]))
+                if lead.source and lead.source_id:
+                    self.connection.execute(
+                        "INSERT INTO lead_identities(source, source_id, lead_id) VALUES (?, ?, ?) "
+                        "ON CONFLICT(source, source_id) DO UPDATE SET lead_id = excluded.lead_id",
+                        (lead.source, lead.source_id, existing[1]),
+                    )
                 continue
             self.connection.execute(
                 "INSERT INTO leads(dedup_key, payload, lead_id) VALUES(?, ?, COALESCE((SELECT lead_id FROM leads WHERE dedup_key = ?), ?)) "
@@ -168,7 +179,18 @@ class LeadRepository:
                 updated += 1
             else:
                 inserted += 1
-        return UpsertSummary(inserted=inserted, updated=updated)
+            row = self.connection.execute(
+                "SELECT lead_id FROM leads WHERE dedup_key = ?", (key,)
+            ).fetchone()
+            if row is not None:
+                lead_ids.append(str(row[0]))
+                if lead.source and lead.source_id:
+                    self.connection.execute(
+                        "INSERT INTO lead_identities(source, source_id, lead_id) VALUES (?, ?, ?) "
+                        "ON CONFLICT(source, source_id) DO UPDATE SET lead_id = excluded.lead_id",
+                        (lead.source, lead.source_id, row[0]),
+                    )
+        return UpsertSummary(inserted=inserted, updated=updated, lead_ids=tuple(lead_ids))
 
     def all(self) -> list[Lead]:
         rows = self.connection.execute(
@@ -179,7 +201,7 @@ class LeadRepository:
     def for_campaign(self, campaign_id: str) -> list[Lead]:
         rows = self.connection.execute(
             "SELECT l.payload FROM leads AS l "
-            "JOIN campaign_leads AS cl ON cl.lead_dedup_key = l.dedup_key "
+            "JOIN campaign_leads AS cl ON cl.lead_id = l.lead_id "
             "WHERE cl.campaign_id = ? ORDER BY l.rowid",
             (campaign_id,),
         )
@@ -195,7 +217,7 @@ class RunRepository:
     @staticmethod
     def _timestamp(value: datetime | str | None) -> str:
         if value is None:
-            value = datetime.now(UTC)
+            value = datetime.now(timezone.utc)
         return value.isoformat() if isinstance(value, datetime) else value
 
     def start(

@@ -22,7 +22,7 @@ def worker_once(
     db: str | None = typer.Option(None, "--db"),
 ) -> None:
     import sqlite3
-    from .execution.handlers import places_handler
+    from .execution.handlers import multi_source_handler, places_handler
     from .execution.worker import JobWorker
     from .migrations import migrate
     settings = Settings(database_path=db or Settings().database_path)
@@ -30,7 +30,12 @@ def worker_once(
     with sqlite3.connect(settings.database_path) as connection:
         migrate(connection)
         worker = JobWorker(connection, worker_id)
-        handler = places_handler(SearchLeadsService(settings))
+        service = SearchLeadsService(settings, store=LeadStore(settings.database_path))
+        single_handler = places_handler(service)
+        multi_handler = multi_source_handler(service)
+
+        def handler(request: dict):
+            return multi_handler(request) if request.get("sources") else single_handler(request)
         while True:
             processed = worker.run_once(handler)
             if processed is None:

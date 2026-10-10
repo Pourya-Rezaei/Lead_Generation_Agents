@@ -1,7 +1,17 @@
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 from src.orchestration import MultiSourceOrchestrator
 from src.registry import SourceCapability
+
+
+def test_orchestrator_preserves_nonterminal_search_status():
+    service = Mock()
+    service.select_sources.return_value = (SourceCapability("places", "google_maps", "places", True, "places"),)
+    service.search.return_value = SimpleNamespace(status=SimpleNamespace(value="running"))
+    result = MultiSourceOrchestrator(service).run("cafe", "Tehran", ["places"])
+    assert result["state"] == "running"
+    assert result["sources"][0]["state"] == "running"
 
 
 def test_orchestrator_keeps_partial_results():

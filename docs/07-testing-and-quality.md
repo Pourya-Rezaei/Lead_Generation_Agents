@@ -21,21 +21,14 @@ pytest -q
 
 ## نتیجه آخرین اعتبارسنجی
 
+آخرین اجرای کامل محلی روی Python 3.10 تا 3.14 موفق بود:
+
 ```text
-pytest -q                              4 passed
-leadgen search ... --limit 5           Saved 5 leads
-leadgen export ...json                 successful
-leadgen export ...csv                  successful
+Python 3.10: 197 passed, 1 warning
+Python 3.11: 197 passed, 1 warning
+Python 3.12: 197 passed, 1 warning
+Python 3.13: 197 passed, 1 warning
+Python 3.14: 197 passed, 1 warning
 ```
 
-برای جلوگیری از تغییر دیتابیس اصلی، اجرای واقعی با `test-phase2.db` انجام شد. خروجی‌ها در `exports/phase2/` ذخیره شدند.
-
-## کنترل دستی MVP
-
-بعد از یک run واقعی بررسی کنید:
-
-- تعداد نتایج با limit سازگار است.
-- نام و آدرس خالی نیستند.
-- source برابر منبع صحیح است.
-- فایل JSON معتبر است.
-- CSV با Excel/CRM باز می‌شود.
+هشدار باقی‌مانده، deprecation از Starlette برای استفادهٔ TestClient/httpx است. اجرای remote در GitHub Actions هنوز نیازمند اتصال repository به remote است. هیچ Actor پولی در این اعتبارسنجی اجرا نشده است.

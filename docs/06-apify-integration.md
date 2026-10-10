@@ -22,16 +22,17 @@ compass~crawler-google-places
 
 ## API flow
 
-Client اکنون lifecycle را به عملیات مستقل تقسیم می‌کند: `start_actor`، `get_run`، `dataset_items` و `abort_run`. wrapper قدیمی `run_actor` برای سازگاری باقی مانده و از همان مسیر start استفاده می‌کند.
+Client lifecycle را به عملیات مستقل تقسیم می‌کند: `start_actor`، `get_run`، `wait_for_run`، dataset paging و `abort_run`. کانکتورها ابتدا Actor را بدون انتظار طولانی شروع می‌کنند، run ID را در `provider_attempts` ثبت می‌کنند و سپس همان run را poll می‌کنند. در restart، worker همان run ID را resume می‌کند؛ cancellation از مسیر Job API فراخوانی واقعی abort را انجام می‌دهد. اگر worker پس از درخواست start و پیش از دریافت run ID crash کند، Job به `needs_review` می‌رود و Actor به‌صورت کورکورانه دوباره start نمی‌شود.
 
 1. `POST /v2/acts/compass~crawler-google-places/runs`
 2. ارسال Bearer token در Header
-3. انتظار برای پایان run با `waitForFinish=60`
-4. خواندن `defaultDatasetId`
-5. `GET /v2/datasets/{datasetId}/items`
-6. mapping رکوردها به `Lead`
-7. ثبت metadata اجرا و رکوردهای خام در SQLite
-8. در صورت شکست اجرای جست‌وجو، ثبت Run ناموفق در Campaign
+3. ثبت پایدار شناسهٔ run پس از پاسخ start
+4. poll کردن همان run تا وضعیت terminal
+5. خواندن `defaultDatasetId`
+6. دریافت صفحات `GET /v2/datasets/{datasetId}/items`
+7. mapping رکوردها به `Lead`
+8. ثبت observation، raw records و metadata در SQLite
+9. در صورت شکست اجرای جست‌وجو، ثبت Run ناموفق در Campaign
 
 توکن نباید در query string قرار گیرد؛ این کار مانع نمایش آن در URL و traceback می‌شود. اجرای موفق، شناسه run، dataset و تعداد رکوردها را در جدول‌های `runs` و `raw_records` ثبت می‌کند.
 

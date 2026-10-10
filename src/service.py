@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from .config import Settings
 from .errors import (
@@ -44,6 +44,7 @@ class SearchLeadsService:
         self.store = store or LeadStore(settings.database_path)
         self.registry = registry or ConnectorRegistry()
         self.last_provider_run_id: str | None = None
+        self.last_persisted_refs: dict[str, object] = {}
 
     def source_capabilities(self) -> tuple[SourceCapability, ...]:
         """Describe selectable sources without constructing or running connectors."""
@@ -53,6 +54,12 @@ class SearchLeadsService:
         """Validate a multi-source selection before any Actor can be activated."""
         return self.registry.select_sources(sources)
 
+    def abort_provider_run(self, source: str, run_id: str) -> dict[str, object]:
+        if not run_id.strip():
+            raise ValueError("run_id must not be empty")
+        connector = self.registry.create(source, self.settings)
+        return connector.abort(run_id)
+
     def search(
         self,
         query: str,
@@ -61,6 +68,7 @@ class SearchLeadsService:
         limit: int = 20,
         campaign_id: str | None = None,
         provider_run_id: str | None = None,
+        on_provider_run=None,
     ) -> SearchResult:
         if not query.strip() or not location.strip():
             raise ValueError("query and location must not be empty")
@@ -74,14 +82,18 @@ class SearchLeadsService:
         if campaign is None:
             raise CampaignNotFoundError(f"campaign not found: {campaign_id}")
         self.registry.validate_source(source)
-        started_at = datetime.now(UTC)
+        started_at = datetime.now(timezone.utc)
         connector = None
         try:
             if source in {"places", "google_search"} and not self.settings.apify_api_token:
                 raise ValueError(f"APIFY_API_TOKEN is required for {source}")
             connector = self.registry.create(source, self.settings)
+            if callable(on_provider_run):
+                connector.on_provider_run = on_provider_run
             resume = getattr(connector, "search_existing_run", None)
-            if provider_run_id and callable(resume):
+            if provider_run_id:
+                if not callable(resume):
+                    raise RuntimeError("connector cannot safely resume the persisted provider run")
                 result = resume(provider_run_id, query, limit)
             else:
                 result = connector.search(query, location, limit)
@@ -112,5 +124,15 @@ class SearchLeadsService:
                     f"({type(persistence_error).__name__})."
                 ) from exc
             raise
-        self.store.persist_search_result(campaign.campaign_id, result, query, location)
+        summary = self.store.persist_search_result(campaign.campaign_id, result, query, location)
+        self.last_persisted_refs = {
+            "lead_ids": list(summary.lead_ids),
+            "run_id": result.run_id,
+            "campaign_id": campaign.campaign_id,
+            "observation_ids": list(summary.observation_ids),
+            "raw_record_refs": [
+                {"run_id": ref_run_id, "record_index": record_index}
+                for ref_run_id, record_index in summary.raw_record_refs
+            ],
+        }
         return result

@@ -1,6 +1,6 @@
 import csv
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 import pytest
 from typer.testing import CliRunner
@@ -19,8 +19,8 @@ def _result(run_id: str, name: str) -> SearchResult:
         status=RunStatus.SUCCEEDED,
         leads=[Lead(name=name)],
         raw_records=[],
-        started_at=datetime(2025, 1, 1, tzinfo=UTC),
-        finished_at=datetime(2025, 1, 1, 0, 1, tzinfo=UTC),
+        started_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        finished_at=datetime(2025, 1, 1, 0, 1, tzinfo=timezone.utc),
     )
 
 

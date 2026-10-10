@@ -6,7 +6,7 @@ from src.quality.matching import match
 from src.quality.normalization import canonicalize
 from src.results import RunStatus, SearchResult
 from src.storage import LeadStore
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 
 def test_phase_a_migration_adds_stable_identity_and_observations(tmp_path):
@@ -37,7 +37,7 @@ def test_search_persistence_records_observation(tmp_path):
     path = tmp_path / "quality.db"
     store = LeadStore(str(path))
     lead = Lead(name="Cafe", source="places", source_id="p-1")
-    result = SearchResult(source="places", run_id="run-1", status=RunStatus.SUCCEEDED, finished_at=datetime.now(UTC), leads=[lead])
+    result = SearchResult(source="places", run_id="run-1", status=RunStatus.SUCCEEDED, finished_at=datetime.now(timezone.utc), leads=[lead])
     store.persist_search_result("general", result, "cafe", "Tehran")
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT source, source_record_id FROM observations").fetchone() == ("places", "p-1")

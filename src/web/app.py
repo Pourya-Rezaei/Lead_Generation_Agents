@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -21,14 +23,18 @@ def create_app(
         resolved_settings, store=resolved_store
     )
     app = FastAPI(title="جمع‌آور لید محلی")
-    app.mount("/static", StaticFiles(directory="static"), name="static")
+    project_root = Path(__file__).resolve().parents[2]
+    app.mount("/static", StaticFiles(directory=project_root / "static"), name="static")
     app.state.settings = resolved_settings
     app.state.store = resolved_store
     app.state.service = resolved_service
     app.state.social_service = social_service or SocialSearchService()
-    app.state.templates = Jinja2Templates(directory="templates")
+    app.state.templates = Jinja2Templates(directory=project_root / "templates")
     app.include_router(router)
     return app
 
 
-app = create_app()
+def __getattr__(name: str):
+    if name == "app":
+        return create_app()
+    raise AttributeError(name)

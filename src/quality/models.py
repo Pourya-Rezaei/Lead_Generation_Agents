@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -11,7 +11,7 @@ class Observation(BaseModel):
     source_record_id: str | None = None
     source_url: str | None = None
     run_id: str | None = None
-    collected_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    collected_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     fields: dict[str, Any] = Field(default_factory=dict)
     mapper_version: str = "1"
 
@@ -21,7 +21,7 @@ class Evidence(BaseModel):
     value: Any
     source_url: str | None = None
     observation_id: str | None = None
-    collected_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    collected_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     evidence_kind: str = "source"
     confidence: float | None = Field(default=None, ge=0, le=1)
     policy_version: str = "quality-v1"

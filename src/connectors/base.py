@@ -11,6 +11,9 @@ class Connector(ABC):
     @abstractmethod
     def search(self, query: str, location: str, limit: int = 20) -> SearchResult: ...
 
+    def abort(self, run_id: str) -> dict[str, object]:
+        raise NotImplementedError("connector does not support abort")
+
 
 class SocialConnector(Connector):
     enabled = False
