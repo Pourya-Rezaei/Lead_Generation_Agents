@@ -17,7 +17,7 @@
         {% for item in sources %}
         <label class="source-option{% if not item.enabled %} is-disabled{% endif %}">
           <input type="checkbox" name="source" value="{{ item.name }}" {% if (form and item.name in form.sources) or (not form and item.name == 'places') %}checked{% endif %} {% if not item.enabled %}disabled{% endif %}>
-          <span><strong>{{ {'places': 'Google Places', 'google_search': 'Google Search', 'instagram': 'Instagram', 'tiktok': 'TikTok', 'youtube': 'YouTube', 'web': 'Web'}[item.name] }}</strong><small>{{ item.description }}{% if not item.enabled %} · فعلاً غیرفعال{% endif %}</small></span>
+          <span><strong>{{ {'places': 'Google Places', 'google_search': 'Google Search', 'instagram': 'Instagram', 'tiktok': 'TikTok', 'linkedin_jobs': 'LinkedIn Jobs', 'web': 'Web'}[item.name] }}</strong><small>{{ item.description }}{% if not item.enabled %} · فعلاً غیرفعال{% endif %}</small></span>
         </label>
         {% endfor %}
       </div>

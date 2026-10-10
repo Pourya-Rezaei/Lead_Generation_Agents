@@ -10,7 +10,7 @@ from src.social_service import SocialSearchRequest, SocialSearchService
 
 def test_request_supports_explicit_profiles_or_keyword_mode():
     profiles = SocialSearchRequest(sources=("instagram",), profile_urls=("https://instagram.com/cafe",))
-    keywords = SocialSearchRequest(sources=("instagram", "youtube"), query="cafes", location="Tehran")
+    keywords = SocialSearchRequest(sources=("instagram", "linkedin_jobs"), query="cafes", location="Tehran")
     assert profiles.mode == "profiles"
     assert keywords.mode == "keywords"
     with pytest.raises(ValidationError):

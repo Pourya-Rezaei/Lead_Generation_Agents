@@ -56,7 +56,7 @@ class SocialSearchService:
         self.executor = executor
 
     def source_capabilities(self) -> tuple[SourceCapability, ...]:
-        return tuple(capability for capability in self.registry.capabilities() if capability.platform in {"instagram", "tiktok", "youtube"})
+        return tuple(capability for capability in self.registry.capabilities() if capability.platform in {"instagram", "tiktok", "linkedin_jobs"})
 
     def validate(self, request: SocialSearchRequest) -> tuple[SourceCapability, ...]:
         return self.registry.select_sources(request.sources)

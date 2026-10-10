@@ -69,27 +69,29 @@ Official Apify Store references have been recorded for pricing only; they do not
 |---|---|---|---|---|
 | Instagram | `apify~instagram-scraper` | https://apify.com/apify/instagram-scraper | $1.50 / 1,000 results | **Unverified** |
 | TikTok | `clockworks~tiktok-scraper` | https://apify.com/clockworks/tiktok-scraper | $1.70 / 1,000 results | **Unverified** |
-| YouTube | `streamers~youtube-scraper` | https://apify.com/streamers/youtube-scraper | $2.40 / 1,000 videos | **Unverified** |
+| LinkedIn Jobs | `dataji~apify-linkdin-jobs` | https://apify.com/dataji/apify-linkdin-jobs | approximately $0.0008 / job result | **Verified for controlled campaign execution** |
 
 `ContractGateReport` requires schema, privacy, and pricing gates to pass. Since the exact input schemas have not been confirmed against the Actor documentation, all three social Actors remain disabled and no paid run is possible. Prices are summaries from the official pages and may change; they are not a budget authorization. Privacy gates exclude person, reviewer, commenter, audience, and viewer data.
 
 ### Social Web API (Phase E)
 
-مسیر `POST /api/social-searches` درخواست عمومی اجتماعی را با مدل `SocialSearchRequest` می‌پذیرد: یا `query`/`location` یا `profile_urls` (نه هر دو) و فقط URLهای HTTPS. پیش از هر اجرای احتمالی، نام sourceها از capability registry انتخاب می‌شود. Instagram، TikTok و YouTube عمداً disabled هستند؛ بنابراین endpoint با خطای 409 امن برمی‌گردد و هیچ Actor یا تماس شبکه‌ای ایجاد نمی‌کند. این مسیر فقط برای قرارداد و اعتبارسنجی آماده است و token یا دادهٔ شخصی را نمی‌پذیرد.
+مسیر `POST /api/social-searches` درخواست عمومی اجتماعی را با مدل `SocialSearchRequest` می‌پذیرد: یا `query`/`location` یا `profile_urls` (نه هر دو) و فقط URLهای HTTPS. پیش از هر اجرای احتمالی، نام sourceها از capability registry انتخاب می‌شود. Instagram و TikTok عمداً disabled هستند؛ LinkedIn Jobs از مسیر کمپین قابل انتخاب است و هیچ Actor یا تماس شبکه‌ای ایجاد نمی‌کند. این مسیر فقط برای قرارداد و اعتبارسنجی آماده است و token یا دادهٔ شخصی را نمی‌پذیرد.
 
 ## منابع اجتماعی: قرارداد فاز E، اجرا غیرفعال
 
-لایهٔ contract-gated برای Instagram، TikTok و YouTube در `src/connectors/social_profiles.py` آماده است. هر پلتفرم مدل ورودی مستقل (`InstagramProfileInput`، `YouTubeProfileInput` و `TikTokProfileInput`) دارد؛ مدل‌ها فقط URL پروفایل HTTPS، query و location عمومی را می‌پذیرند و فیلدهای اضافی را رد می‌کنند. Connectorها عمداً `enabled=False` هستند و هیچ Actor پولی را فراخوانی نمی‌کنند.
+لایهٔ contract-gated برای Instagram، TikTok و LinkedIn Jobs در `src/connectors/social_profiles.py` آماده است. Instagram و TikTok مدل پروفایل HTTPS دارند؛ LinkedIn Jobs از `LinkedInJobsInput` با `keywords`، `location` و `max_results` استفاده می‌کند. Instagram و TikTok عمداً `enabled=False` هستند؛ LinkedIn Jobs پس از عبور gate از مسیر connector اجرایی کمپین استفاده می‌کند.
 
 Mapping فقط URL عمومی allowlist‌شده، عنوان/handle، bio حرفه‌ای، location، لینک رسمی و metadata محدود پلتفرم (مانند followers/subscribers/videoCount) را نگه می‌دارد. email، owner، reviewer، commenter، comments، audience و viewer data هرگز به خروجی وارد نمی‌شوند. `map_public_profile_safe` به‌جای exception یا دادهٔ خام، کدهای پایدار `malformed_record` و `private_profile` می‌دهد. فعال‌سازی آینده نیازمند تأیید قرارداد Actor، schema/pricing و privacy خواهد بود.
 
-### آداپتورهای سه Actor اجتماعی
+### آداپتورهای منابع اجتماعی و شغلی
 
 برای `apify~instagram-scraper`، `clockworks~tiktok-scraper` و
-`streamers~youtube-scraper` آداپتورهای contract-gated در
-`src/connectors/social_profiles.py` وجود دارند. هر آداپتور request preview
-فیلترشده (فقط `profile_url` و در صورت وجود `query`/`location`) و allowlist خروجی
-عمومی دارد، اما `enabled=False`، `contract_status=unverified` و
+`dataji~apify-linkdin-jobs` قراردادهای source در
+`src/connectors/social_profiles.py` و connector اجرایی LinkedIn Jobs در
+`src/connectors/apify_linkedin_jobs.py` وجود دارند. هر آداپتور request preview فیلترشده و allowlist خروجی عمومی دارد؛ LinkedIn Jobs فقط
+fields شغلی و شرکتی عمومی (`jobId`، `title`، `companyName`، `location`،
+`companyWebsite` و `jobUrl`) را نگه می‌دارد. همهٔ این منابع فعلاً
+`enabled=False`، `contract_status=unverified` و
 `pricing_status=not_verified` باقی می‌ماند. این وضعیت عمداً بر اساس نبود تأیید
 کافی هم‌زمانِ schema عمومی، هزینه و privacy است؛ بنابراین preview قابل اجرا
 نیست و هیچ تماس پولی انجام نمی‌شود. وضعیت‌های provider به کدهای پایدار و امن

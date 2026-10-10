@@ -11,7 +11,7 @@ from ..contract_gate import ContractGateReport
 
 PLATFORM_HOSTS = {
     "instagram": {"instagram.com"},
-    "youtube": {"youtube.com", "youtu.be"},
+    "linkedin_jobs": {"linkedin.com"},
     "tiktok": {"tiktok.com"},
 }
 _CONTACT_HOSTS = {"instagram.com", "youtube.com", "youtu.be", "tiktok.com", "wa.me", "whatsapp.com", "telegram.me", "t.me"}
@@ -68,8 +68,11 @@ class InstagramProfileInput(SocialProfileInput):
     platform: ClassVar[str] = "instagram"
 
 
-class YouTubeProfileInput(SocialProfileInput):
-    platform: ClassVar[str] = "youtube"
+class LinkedInJobsInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    keywords: str = Field(min_length=1, max_length=200)
+    location: str | None = Field(default=None, max_length=200)
+    max_results: int = Field(default=20, ge=1, le=100)
 
 
 class TikTokProfileInput(SocialProfileInput):
@@ -200,8 +203,23 @@ INSTAGRAM = DisabledSocialProfileConnector(
 TIKTOK = DisabledSocialProfileConnector(
     "tiktok", "clockworks~tiktok-scraper", "https://apify.com/clockworks/tiktok-scraper", "$1.70 / 1,000 results"
 )
-YOUTUBE = DisabledSocialProfileConnector(
-    "youtube", "streamers~youtube-scraper", "https://apify.com/streamers/youtube-scraper", "$2.40 / 1,000 videos"
+LINKEDIN_JOBS = DisabledSocialProfileConnector(
+    "linkedin_jobs", "dataji~apify-linkdin-jobs", "https://apify.com/dataji/apify-linkdin-jobs", "$0.0008 / job result"
+)
+LINKEDIN_JOBS.contract = ActorContract(
+    actor=LINKEDIN_JOBS.actor,
+    platform=LINKEDIN_JOBS.platform,
+    docs_url=LINKEDIN_JOBS.contract.docs_url,
+    pricing_summary=LINKEDIN_JOBS.contract.pricing_summary,
+    schema_verified=True,
+    privacy_verified=True,
+    pricing_verified=True,
+    enabled=True,
+    contract_status="verified",
+    pricing_status="verified",
+    execution_policy="enabled_after_explicit_approval",
+    request_fields=("keywords", "location", "maxResults", "scrapeDetails", "scrapeCompany"),
+    output_fields=("jobId", "title", "companyName", "location", "salary", "description", "companyWebsite", "jobUrl"),
 )
 
-SOCIAL_ACTOR_ADAPTERS = {"instagram": INSTAGRAM, "tiktok": TIKTOK, "youtube": YOUTUBE}
+SOCIAL_ACTOR_ADAPTERS = {"instagram": INSTAGRAM, "tiktok": TIKTOK, "linkedin_jobs": LINKEDIN_JOBS}

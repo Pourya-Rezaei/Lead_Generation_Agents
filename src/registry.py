@@ -5,6 +5,7 @@ from typing import Any
 from .connectors.base import Connector
 from .connectors.apify_places import ApifyPlacesConnector
 from .connectors.apify_google_search import ApifyGoogleSearchConnector
+from .connectors.apify_linkedin_jobs import ApifyLinkedInJobsConnector
 from .errors import ApifyError
 
 ConnectorFactory = Callable[[Any], Connector]
@@ -32,13 +33,16 @@ class ConnectorRegistry:
             "google_search": lambda settings: ApifyGoogleSearchConnector(
                 settings.apify_api_token or "", settings.http_timeout
             ),
+            "linkedin_jobs": lambda settings: ApifyLinkedInJobsConnector(
+                settings.apify_api_token or "", settings.http_timeout
+            ),
         }
         self._capabilities = (
             SourceCapability("places", "google_maps", ApifyPlacesConnector.actor, True, "Google Places business listings"),
             SourceCapability("google_search", "google_search", ApifyGoogleSearchConnector.actor, True, "Google Search candidate results"),
             SourceCapability("instagram", "instagram", "apify~instagram-scraper", False, "Public business profiles (not enabled)"),
             SourceCapability("tiktok", "tiktok", "clockworks~tiktok-scraper", False, "Public business profiles (not enabled)"),
-            SourceCapability("youtube", "youtube", "streamers~youtube-scraper", False, "Public business profiles (not enabled)"),
+            SourceCapability("linkedin_jobs", "linkedin_jobs", "dataji~apify-linkdin-jobs", True, "Public LinkedIn job listings"),
             SourceCapability("web", "web", None, False, "Web discovery (not enabled)"),
         )
         self._capability_by_name = {item.name: item for item in self._capabilities}

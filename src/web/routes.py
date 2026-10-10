@@ -332,7 +332,7 @@ def run_search(
     campaigns = request.app.state.store.campaigns()
     try:
         parsed_limit = int(limit)
-        if any(item not in {"places", "google_search"} for item in sources):
+        if any(item not in {"places", "google_search", "linkedin_jobs"} for item in sources):
             raise ValueError("Selected source is not enabled.")
         if not query.strip() or not location.strip():
             raise ValueError("Query and location are required.")

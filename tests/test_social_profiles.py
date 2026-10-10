@@ -3,36 +3,42 @@ from pydantic import ValidationError
 from src.connectors.social_profiles import (
     INSTAGRAM,
     TIKTOK,
-    YOUTUBE,
+    LINKEDIN_JOBS,
     InstagramProfileInput,
     TikTokProfileInput,
-    YouTubeProfileInput,
+    LinkedInJobsInput,
     normalize_contact_links,
 )
 from src.results import PlatformObservation, PlatformSearchResult, RunStatus
 
 
 def test_social_connectors_are_disabled_by_default():
-    assert not INSTAGRAM.enabled and not TIKTOK.enabled and not YOUTUBE.enabled
-    for connector in (INSTAGRAM, TIKTOK, YOUTUBE):
+    assert not INSTAGRAM.enabled and not TIKTOK.enabled and not LINKEDIN_JOBS.enabled
+    for connector in (INSTAGRAM, TIKTOK):
         assert connector.contract.contract_status == "unverified"
         assert connector.contract.pricing_status == "not_verified"
         assert connector.contract.execution_policy == "disabled_no_paid_calls"
         assert connector.contract.gate_report.status == "blocked"
         assert connector.contract.gate_report.failed_gates == ("schema",)
+    assert LINKEDIN_JOBS.contract.gate_report.passed
+    assert LINKEDIN_JOBS.contract.execution_policy == "enabled_after_explicit_approval"
 
 
 def test_actor_metadata_has_official_pricing_references_without_authorizing_calls():
     expected = {
         INSTAGRAM: ("https://apify.com/apify/instagram-scraper", "$1.50 / 1,000 results"),
         TIKTOK: ("https://apify.com/clockworks/tiktok-scraper", "$1.70 / 1,000 results"),
-        YOUTUBE: ("https://apify.com/streamers/youtube-scraper", "$2.40 / 1,000 videos"),
+        LINKEDIN_JOBS: ("https://apify.com/dataji/apify-linkdin-jobs", "$0.0008 / job result"),
     }
     for connector, (url, pricing) in expected.items():
         assert connector.contract.docs_url == url
         assert connector.contract.pricing_summary == pricing
-        assert connector.contract.schema_verified is False
-        assert connector.contract.gate_report.passed is False
+        if connector is LINKEDIN_JOBS:
+            assert connector.contract.schema_verified is True
+            assert connector.contract.gate_report.passed is True
+        else:
+            assert connector.contract.schema_verified is False
+            assert connector.contract.gate_report.passed is False
 
 
 def test_actor_request_is_safe_preview_and_never_executable():
@@ -58,7 +64,7 @@ def test_mapping_allows_only_public_https_profile_fields():
 
 def test_invalid_or_personal_unstructured_result_is_ignored():
     assert TIKTOK.map_public_profile({"url": "http://tiktok.com/cafe", "username": "cafe"}) is None
-    assert YOUTUBE.map_public_profile({"profileUrl": "https://youtube.com/cafe"}) is None
+    assert LINKEDIN_JOBS.map_public_profile({"jobUrl": "https://linkedin.com/jobs/view/1"}) is None
 
 
 def test_mapping_normalizes_shared_fields_and_allowlists_contacts():
@@ -79,14 +85,15 @@ def test_mapping_normalizes_shared_fields_and_allowlists_contacts():
 
 def test_contact_allowlist_and_platform_result_contract():
     assert normalize_contact_links(["https://t.me/cafe", "https://example.com/contact", "https://tiktok.com/@cafe"], "tiktok") == ("https://t.me/cafe", "https://tiktok.com/@cafe")
-    observation = PlatformObservation(platform="youtube", profile_url="https://youtube.com/@cafe", name="Cafe", metadata={"subscribers": 42}, contact_links=("https://wa.me/1",), source="youtube")
-    result = PlatformSearchResult(platform="youtube", status=RunStatus.SUCCEEDED, observations=[observation])
-    assert result.observations[0].metadata["subscribers"] == 42
+    observation = PlatformObservation(platform="linkedin_jobs", profile_url="https://linkedin.com/jobs/view/1", name="Cafe", metadata={"company": "Cafe"}, contact_links=("https://wa.me/1",), source="linkedin_jobs")
+    result = PlatformSearchResult(platform="linkedin_jobs", status=RunStatus.SUCCEEDED, observations=[observation])
+    assert result.observations[0].metadata["company"] == "Cafe"
 
 
 def test_platform_inputs_are_independent_and_https_contract_gated():
     assert InstagramProfileInput(profile_url="https://instagram.com/cafe").platform == "instagram"
-    assert YouTubeProfileInput(profile_url="https://youtube.com/@cafe").platform == "youtube"
+    linkedin = LinkedInJobsInput(keywords="software engineer", location="Berlin", max_results=5)
+    assert linkedin.max_results == 5
     assert TikTokProfileInput(profile_url="https://tiktok.com/@cafe").platform == "tiktok"
     with pytest.raises(ValidationError):
         InstagramProfileInput(profile_url="http://instagram.com/cafe")

@@ -20,15 +20,17 @@ def test_source_activation_request_is_blocked_without_schema(tmp_path):
     assert response.json()["detail"]["code"] == "contract_gate_blocked"
 
 
-def test_source_contracts_remain_blocked(tmp_path):
+def test_source_contracts_show_linkedin_ready_and_others_blocked(tmp_path):
     app = create_app(Settings(database_path=str(tmp_path / "sources.db"), _env_file=None))
     client = TestClient(app)
     contracts = client.get("/api/source-contracts")
     page = client.get("/sources")
     assert contracts.status_code == 200
-    assert all(item["status"] == "blocked" for item in contracts.json())
+    statuses = {item["platform"]: item["status"] for item in contracts.json()}
+    assert statuses["linkedin_jobs"] == "passed"
+    assert statuses["instagram"] == statuses["tiktok"] == "blocked"
     assert page.status_code == 200
-    assert "دروازه‌های باقی‌مانده" in page.text
+    assert "linkedin_jobs" in page.text
 
 
 def test_jobs_history_and_detail_render(tmp_path):

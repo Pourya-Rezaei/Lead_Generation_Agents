@@ -43,7 +43,7 @@ class ApifyClient:
     ) -> None:
         if not token:
             raise ValueError("An Apify API token is required")
-        self._headers = {"Authorization": f"Bearer {token}"}
+        self._headers = {"Authorization": "Bearer " + token}
         self.timeout = timeout
         self._client = client or httpx.Client(trust_env=False)
         self._owned_client = client is None

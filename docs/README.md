@@ -32,7 +32,7 @@
 - endpoint امن activation request که تا تکمیل schema gate هیچ Actor پولی را فعال نمی‌کند
 - تست کامل فعلی: `167 passed`
 
-منبع `web` و Connectorهای Instagram، TikTok و YouTube در حال حاضر فعال نیستند و نباید به‌عنوان قابلیت آماده معرفی شوند. در رابط وب، فقط `places` فعال است.
+منبع `web` و Connectorهای Instagram و TikTok فعال نیستند. LinkedIn Jobs برای اجرای کنترل‌شده در کمپین‌ها فعال شده و در رابط وب قابل انتخاب است.
 - `ConnectorRegistry.capabilities()` و `SearchLeadsService.source_capabilities()` descriptor قابلیت‌ها را بدون اجرای Actor ارائه می‌کنند؛ `select_sources([...])` انتخاب چند منبع را پیش از ساخت Connector اعتبارسنجی می‌کند و برای منبع غیرفعال خطای امن می‌دهد.
 
 ## مسیر مطالعه پیشنهادی
