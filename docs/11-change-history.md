@@ -128,7 +128,8 @@ Web smoke routes   -> /, /campaigns, /search و /static/styles.css موفق
 - UI فارسی جست‌وجو اکنون منابع را نمایش می‌دهد و منابع غیرفعال را قفل می‌کند.
 - `MultiSourceOrchestrator` منابع فعال را مستقل اجرا می‌کند، نتایج موفق را هنگام شکست منبع دیگر حفظ می‌کند و وضعیت `succeeded`، `partial` یا `failed` می‌دهد.
 - API `POST /api/orchestrated-searches` با idempotency و اعتبارسنجی capability اضافه شد؛ Worker نیز وضعیت partial را حفظ می‌کند.
-- آخرین اعتبارسنجی آفلاین: `pytest -q` با نتیجهٔ `163 passed` و یک warning سازگاری Starlette/httpx.
+- پنل وب مسیرهای `/jobs` و `/jobs/{job_id}` را برای مشاهدهٔ تاریخچه و جزئیات Job ارائه می‌کند.
+- آخرین اعتبارسنجی آفلاین: `pytest -q` با نتیجهٔ `164 passed` و یک warning سازگاری Starlette/httpx.
 
 ## تصمیم‌های باقی‌مانده برای توسعه آینده
 

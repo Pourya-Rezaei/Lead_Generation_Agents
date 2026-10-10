@@ -90,6 +90,25 @@ def _source_capabilities(request: Request):
     return capabilities if isinstance(capabilities, tuple) else ()
 
 
+@router.get("/jobs", response_class=HTMLResponse)
+def jobs_page(request: Request):
+    from ..execution.service import JobService
+    return _templates(request).TemplateResponse(
+        request=request,
+        name="jobs.html",
+        context={"jobs": JobService(request.app.state.settings.database_path).recent()},
+    )
+
+
+@router.get("/jobs/{job_id}", response_class=HTMLResponse)
+def job_detail_page(request: Request, job_id: str):
+    from ..execution.service import JobService
+    job = JobService(request.app.state.settings.database_path).get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return _templates(request).TemplateResponse(request=request, name="job_detail.html", context={"job": job})
+
+
 @router.get("/api/profile-candidates/{lead_id}")
 def api_profile_candidates(request: Request, lead_id: str):
     import sqlite3

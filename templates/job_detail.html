@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}جزئیات اجرا · نقشهٔ لید{% endblock %}
+{% block content %}
+<section class="hero"><span class="eyebrow">جزئیات اجرا</span><h1>{{ job.state }}</h1><p><code>{{ job.job_id }}</code></p></section>
+<div class="panel"><h2>درخواست</h2><pre>{{ job.request | tojson(indent=2) }}</pre><h2>پیشرفت</h2><pre>{{ job.progress | tojson(indent=2) }}</pre>{% if job.error_code %}<p class="error">کد خطا: {{ job.error_code }}</p>{% endif %}<a class="btn secondary" href="/jobs">بازگشت به تاریخچه</a></div>
+{% endblock %}

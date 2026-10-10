@@ -25,7 +25,8 @@
 - orchestration چندمنبعی برای Google Places و Google Search با حفظ نتیجهٔ partial
 - نمایش و انتخاب منابع در UI؛ منابع اجتماعی غیرفعال با contract gate باقی می‌مانند
 - API idempotent برای ایجاد Job چندمنبعی و handler سازگار با Worker
-- تست کامل فعلی: `163 passed`
+- تاریخچهٔ اجرا و صفحهٔ جزئیات Job در پنل وب
+- تست کامل فعلی: `164 passed`
 
 منبع `web` و Connectorهای Instagram، TikTok و YouTube در حال حاضر فعال نیستند و نباید به‌عنوان قابلیت آماده معرفی شوند. در رابط وب، فقط `places` فعال است.
 - `ConnectorRegistry.capabilities()` و `SearchLeadsService.source_capabilities()` descriptor قابلیت‌ها را بدون اجرای Actor ارائه می‌کنند؛ `select_sources([...])` انتخاب چند منبع را پیش از ساخت Connector اعتبارسنجی می‌کند و برای منبع غیرفعال خطای امن می‌دهد.

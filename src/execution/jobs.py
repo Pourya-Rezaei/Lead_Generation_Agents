@@ -42,6 +42,12 @@ class JobRepository:
         )
         return self.get(job_id)  # type: ignore[return-value]
 
+    def recent(self, limit: int = 50) -> list[Job]:
+        rows = self.connection.execute(
+            "SELECT job_id FROM jobs ORDER BY created_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [job for row in rows if (job := self.get(row[0])) is not None]
+
     def get(self, job_id: str) -> Job | None:
         row = self.connection.execute("SELECT job_id, idempotency_key, request, state, progress, error_code, fencing_token, provider_run_id, provider_state FROM jobs WHERE job_id = ?", (job_id,)).fetchone()
         if row is None:

@@ -16,6 +16,10 @@ class JobService:
         with self._connect() as db:
             return JobRepository(db).submit(request, idempotency_key)
 
+    def recent(self, limit: int = 50) -> list[Job]:
+        with self._connect() as db:
+            return JobRepository(db).recent(limit)
+
     def get(self, job_id: str) -> Job | None:
         with self._connect() as db:
             return JobRepository(db).get(job_id)
