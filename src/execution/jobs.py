@@ -154,6 +154,15 @@ class JobRepository:
             for r in rows
         ]
 
+    def claim_provider_abort(self, job_id: str, source: str, run_id: str) -> bool:
+        result = self.connection.execute(
+            "UPDATE provider_attempts SET status = 'aborting', updated_at = ? "
+            "WHERE job_id = ? AND source = ? AND provider_run_id = ? AND cancellation_requested = 1 "
+            "AND status NOT IN ('aborting','succeeded','failed','aborted','timed_out')",
+            (datetime.now(timezone.utc).isoformat(), job_id, source, run_id),
+        )
+        return result.rowcount == 1
+
     def request_provider_cancellation(self, job_id: str) -> None:
         self.connection.execute(
             "UPDATE provider_attempts SET cancellation_requested = 1, status = 'cancel_requested', updated_at = ? "

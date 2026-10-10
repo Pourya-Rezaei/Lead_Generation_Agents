@@ -16,13 +16,45 @@ def _provider_run_callback(service: SearchLeadsService, request: dict[str, Any],
 
     def persist(source_name: str, run_id: str | None, dataset_id: str | None, status: str) -> None:
         import sqlite3
+        from ..errors import ProviderAbortOutcomeUnknown
         from .jobs import JobRepository
+
         with sqlite3.connect(service.settings.database_path, timeout=5) as db:
             db.execute("PRAGMA foreign_keys = ON")
-            JobRepository(db).record_provider_attempt(
+            repo = JobRepository(db)
+            repo.record_provider_attempt(
                 job_id, source, run_id=run_id, dataset_id=dataset_id, status=status,
                 worker_id=worker_id, fencing_token=fencing_token,
             )
+            if run_id and status in {"starting", "pending", "running", "resuming"}:
+                attempt = next(
+                    (item for item in repo.provider_attempts(job_id) if item["source"] == source),
+                    None,
+                )
+                if (
+                    attempt
+                    and attempt["cancellation_requested"]
+                    and repo.claim_provider_abort(job_id, source, run_id)
+                ):
+                    db.commit()
+                    try:
+                        service.abort_provider_run(source_name, run_id)
+                    except Exception:
+                        db.execute(
+                            "UPDATE provider_attempts SET status = 'abort_unknown', updated_at = datetime('now') "
+                            "WHERE job_id = ? AND source = ? AND provider_run_id = ? AND status = 'aborting'",
+                            (job_id, source, run_id),
+                        )
+                        db.commit()
+                        raise ProviderAbortOutcomeUnknown(
+                            "Provider run abort outcome is unknown"
+                        ) from None
+                    db.execute(
+                        "UPDATE provider_attempts SET status = 'aborted', updated_at = datetime('now') "
+                        "WHERE job_id = ? AND source = ? AND provider_run_id = ?",
+                        (job_id, source, run_id),
+                    )
+                    db.commit()
     return persist
 
 
@@ -41,15 +73,19 @@ def places_handler(service: SearchLeadsService) -> Callable[[dict[str, Any]], An
         options = {"provider_run_id": provider_run_id} if provider_run_id else {}
         if callback:
             options["on_provider_run"] = callback
-        result = service.search(query, location, source, limit, campaign_id, **options)
-        provider_run_id = getattr(result, "run_id", None)
+        search_result = service.search(query, location, source, limit, campaign_id, **options)
+        provider_run_id = getattr(search_result, "run_id", None)
+        result_status = getattr(search_result, "status", "succeeded")
+        result_state = getattr(result_status, "value", result_status)
+        if not isinstance(result_state, str):
+            result_state = "succeeded"
         details = getattr(service, "last_persisted_refs", {})
-        result = {"completed_steps": [source]}
+        result = {"completed_steps": [source], "state": result_state}
         if isinstance(details, dict) and details.get("lead_ids"):
             result["persisted_refs"] = details
         if isinstance(provider_run_id, str) and provider_run_id:
             result["provider_run_id"] = provider_run_id
-        return result if len(result) > 1 else [source]
+        return result
 
     return handle
 

@@ -33,6 +33,14 @@ class ApifyTransientError(ApifyError):
     """A retryable Apify or network failure exhausted its retries."""
 
 
+class ApifyStartOutcomeUnknown(ApifyError):
+    """An Actor start may have been accepted, but no usable run ID was received."""
+
+
+class ProviderAbortOutcomeUnknown(ApifyError):
+    """A provider run abort may have been accepted, but completion is unknown."""
+
+
 class ApifyMalformedResponseError(ApifyError):
     """Apify returned JSON with an unexpected shape."""
 

@@ -12,6 +12,7 @@ from .budget import BudgetRepository
 from .cache import ExecutionCache
 from typing import Any
 
+from ..errors import ApifyStartOutcomeUnknown, ProviderAbortOutcomeUnknown
 from .jobs import Job, JobRepository
 
 
@@ -186,7 +187,18 @@ class JobWorker:
                     result_details["persisted_refs"] = result["persisted_refs"]
                 provider_run_id = result.get("provider_run_id")
                 if isinstance(provider_run_id, str) and provider_run_id:
-                    self.jobs.update_provider_run(job.job_id, self.worker_id, job.fencing_token, provider_run_id, "SUCCEEDED")
+                    provider_state = {
+                        "succeeded": "SUCCEEDED",
+                        "partial": "SUCCEEDED",
+                        "failed": "FAILED",
+                        "aborted": "ABORTED",
+                        "timed_out": "TIMED-OUT",
+                        "running": "RUNNING",
+                        "pending": "READY",
+                    }.get(result_state, "UNKNOWN")
+                    self.jobs.update_provider_run(
+                        job.job_id, self.worker_id, job.fencing_token, provider_run_id, provider_state
+                    )
                 checkpoint = result.get("checkpoint")
                 if isinstance(checkpoint, dict):
                     result_details["checkpoint"] = checkpoint
@@ -203,7 +215,21 @@ class JobWorker:
                 "UPDATE provider_attempts SET status = ?, updated_at = datetime('now') WHERE job_id = ? AND status != 'cancel_requested'",
                 (attempt_state, job.job_id),
             )
-            if result_state in {"failed", "aborted", "timed_out"}:
+            if result_state == "aborted":
+                current = self.jobs.get(job.job_id)
+                if current is not None and current.state == "cancel_requested":
+                    self.connection.execute(
+                        "UPDATE jobs SET state = 'cancelled', lease_until = NULL, updated_at = datetime('now') "
+                        "WHERE job_id = ? AND worker_id = ? AND fencing_token = ?",
+                        (job.job_id, self.worker_id, job.fencing_token),
+                    )
+                else:
+                    self.connection.execute(
+                        "UPDATE jobs SET state = 'failed', error_code = ?, lease_until = NULL, updated_at = datetime('now') "
+                        "WHERE job_id = ? AND worker_id = ? AND fencing_token = ?",
+                        ("SourceExecutionFailed", job.job_id, self.worker_id, job.fencing_token),
+                    )
+            elif result_state in {"failed", "timed_out"}:
                 self.connection.execute("UPDATE jobs SET state = 'failed', error_code = ?, lease_until = NULL, updated_at = datetime('now') WHERE job_id = ? AND worker_id = ? AND fencing_token = ?", ("SourceExecutionFailed", job.job_id, self.worker_id, job.fencing_token))
             elif result_state == "partial":
                 self.connection.execute("UPDATE jobs SET state = 'partial', lease_until = NULL, updated_at = datetime('now') WHERE job_id = ? AND worker_id = ? AND fencing_token = ?", (job.job_id, self.worker_id, job.fencing_token))
@@ -224,7 +250,24 @@ class JobWorker:
                 BudgetRepository(self.connection).reconcile(reservation_id, None)
             self.connection.commit()
         except Exception as exc:
-            self.connection.execute("UPDATE jobs SET state = 'failed', error_code = ?, lease_until = NULL, updated_at = datetime('now') WHERE job_id = ? AND worker_id = ? AND fencing_token = ?", (type(exc).__name__, job.job_id, self.worker_id, job.fencing_token))
+            current = self.jobs.get(job.job_id)
+            if current is not None and current.state == "needs_review":
+                state = "needs_review"
+                error_code = current.error_code or "ProviderOutcomeUnknown"
+            elif isinstance(exc, ApifyStartOutcomeUnknown):
+                state = "needs_review"
+                error_code = "ProviderStartOutcomeUnknown"
+            elif isinstance(exc, ProviderAbortOutcomeUnknown):
+                state = "needs_review"
+                error_code = "ProviderAbortOutcomeUnknown"
+            else:
+                state = "failed"
+                error_code = type(exc).__name__
+            self.connection.execute(
+                "UPDATE jobs SET state = ?, error_code = ?, lease_until = NULL, updated_at = datetime('now') "
+                "WHERE job_id = ? AND worker_id = ? AND fencing_token = ?",
+                (state, error_code, job.job_id, self.worker_id, job.fencing_token),
+            )
             if reservation_id:
                 BudgetRepository(self.connection).reconcile(reservation_id, None)
             self.connection.commit()

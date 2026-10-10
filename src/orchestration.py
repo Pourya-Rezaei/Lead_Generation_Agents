@@ -53,16 +53,21 @@ class MultiSourceOrchestrator:
                 else:
                     executions.append(SourceExecution(capability.name, "failed", "InvalidSearchResultStatus"))
         succeeded = sum(item.state == "succeeded" for item in executions)
+        usable = sum(item.state in {"succeeded", "partial"} for item in executions)
         active = sum(item.state in {"pending", "running"} for item in executions)
         failed = sum(item.state in {"failed", "aborted", "timed_out"} for item in executions)
-        state = (
-            "succeeded" if succeeded == len(executions)
-            else "running" if active and not failed
-            else "partial" if succeeded
-            else "failed"
-        )
+        if executions and succeeded == len(executions):
+            state = "succeeded"
+        elif active and not failed:
+            state = "running"
+        elif usable:
+            state = "partial"
+        else:
+            state = "failed"
         return {
             "state": state,
             "sources": [item.__dict__ for item in executions],
-            "completed_steps": [item.source for item in executions if item.state == "succeeded"],
+            "completed_steps": [
+                item.source for item in executions if item.state in {"succeeded", "partial"}
+            ],
         }

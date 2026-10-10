@@ -22,7 +22,9 @@ compass~crawler-google-places
 
 ## API flow
 
-Client lifecycle را به عملیات مستقل تقسیم می‌کند: `start_actor`، `get_run`، `wait_for_run`، dataset paging و `abort_run`. کانکتورها ابتدا Actor را بدون انتظار طولانی شروع می‌کنند، run ID را در `provider_attempts` ثبت می‌کنند و سپس همان run را poll می‌کنند. در restart، worker همان run ID را resume می‌کند؛ cancellation از مسیر Job API فراخوانی واقعی abort را انجام می‌دهد. اگر worker پس از درخواست start و پیش از دریافت run ID crash کند، Job به `needs_review` می‌رود و Actor به‌صورت کورکورانه دوباره start نمی‌شود.
+Client lifecycle را به عملیات مستقل تقسیم می‌کند: `start_actor`، `get_run`، `wait_for_run`، dataset paging و `abort_run`. کانکتورها ابتدا Actor را بدون انتظار طولانی شروع می‌کنند، run ID را در `provider_attempts` ثبت می‌کنند و سپس همان run را poll می‌کنند. در restart، worker همان run ID را resume می‌کند؛ cancellation از مسیر Job API فراخوانی واقعی abort را انجام می‌دهد. درخواست start یک‌بار ارسال می‌شود و پس از timeout، قطع ارتباط، پاسخ 5xx یا پاسخ موفقِ نامعتبر، نتیجهٔ مبهم به `needs_review` می‌رود تا از start پولی تکراری جلوگیری شود. پاسخ‌های قطعی مانند 401/403 و 404 همچنان به خطای credential/endpoint تبدیل می‌شوند.
+
+رکورد خام Places فقط فیلدهای تجاری allowlist‌شده را نگه می‌دارد. `reviewsCount` می‌تواند به‌عنوان شمارش aggregate در Lead بماند، اما آرایه/متن `reviews` و مشخصات reviewer نه در Lead و نه در raw record ذخیره نمی‌شوند.
 
 1. `POST /v2/acts/compass~crawler-google-places/runs`
 2. ارسال Bearer token در Header

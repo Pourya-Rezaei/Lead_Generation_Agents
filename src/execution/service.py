@@ -37,17 +37,35 @@ class JobService:
                 run_id = attempt.get("provider_run_id")
                 if not run_id:
                     continue
+                with self._connect() as db:
+                    repo = JobRepository(db)
+                    if not repo.claim_provider_abort(job_id, attempt["source"], run_id):
+                        continue
+                    db.commit()
                 try:
                     abort_provider_run(attempt["source"], run_id)
                 except Exception:
+                    with self._connect() as db:
+                        db.execute(
+                            "UPDATE jobs SET state = 'needs_review', error_code = 'ProviderAbortOutcomeUnknown', "
+                            "lease_until = NULL, updated_at = datetime('now') WHERE job_id = ? AND state = 'cancel_requested'",
+                            (job_id,),
+                        )
+                        db.execute(
+                            "UPDATE provider_attempts SET status = 'abort_unknown', updated_at = datetime('now') "
+                            "WHERE job_id = ? AND source = ? AND provider_run_id = ? AND status = 'aborting'",
+                            (job_id, attempt["source"], run_id),
+                        )
+                        db.commit()
                     continue
                 with self._connect() as db:
                     db.execute(
-                        "UPDATE provider_attempts SET status = 'aborted', updated_at = datetime('now') WHERE job_id = ? AND source = ? AND provider_run_id = ?",
+                        "UPDATE provider_attempts SET status = 'aborted', updated_at = datetime('now') "
+                        "WHERE job_id = ? AND source = ? AND provider_run_id = ? AND status = 'aborting'",
                         (job_id, attempt["source"], run_id),
                     )
                     db.commit()
-        return job
+        return self.get(job_id) or job
 
     def provider_attempts(self, job_id: str) -> list[dict[str, Any]]:
         with self._connect() as db:

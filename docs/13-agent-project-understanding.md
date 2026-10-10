@@ -181,7 +181,7 @@ Entry point
 
 ## وضعیت فعلی Web UI
 
-لایهٔ وب در `src/web/` یک پنل فارسی و RTL با FastAPI و Jinja است. routeهای فعلی شامل Dashboard، فهرست/ساخت/نمایش Campaign، اجرای synchronous جست‌وجوی `places` و export JSON/CSV هستند. `templates/` و `static/styles.css` لایهٔ presentation را تشکیل می‌دهند؛ routeها نباید مستقیماً SQL یا Apify را فراخوانی کنند.
+لایهٔ وب در `src/web/` یک پنل فارسی و RTL با FastAPI و Jinja است. routeها Dashboard، Campaignها، جست‌وجوی synchronous، ایجاد/نمایش/لغو/review Jobها، وضعیت منابع و contract gateها، بازبینی پروفایل کسب‌وکار و export JSON/CSV را پوشش می‌دهند. اجرای ناهمگام از طریق worker انجام می‌شود؛ جست‌وجو و منبع‌ها فقط به مسیر synchronous محدود نیستند. `templates/` و `static/styles.css` لایهٔ presentation هستند؛ routeها نباید مستقیماً SQL یا Apify را فراخوانی کنند.
 
 برای اجرای محلی از ریشهٔ repository استفاده کن:
 
@@ -189,7 +189,7 @@ Entry point
 uvicorn src.web.app:app --host 127.0.0.1 --port 8000
 ```
 
-پنل هنوز local-only است و احراز هویت، چندکاربره‌بودن، queue و sourceهای social/search در آن فعال نیستند. baseline فعلی تست‌ها `89 passed` است و تست‌های web از `TestClient` و fixtureهای deterministic استفاده می‌کنند.
+پنل local-only و بدون احراز هویت/چندکاربره‌بودن است؛ آن را روی شبکه bind نکن. منابع فعال شامل Places و Google Search و LinkedIn Jobs کنترل‌شده‌اند؛ Instagram/TikTok غیرفعال‌اند و YouTube connector فعال نیست. تست‌های web از `TestClient` و fixtureهای deterministic استفاده می‌کنند.
 
 ## مرحله شش: خواندن حداقلی و هدفمند source code
 
@@ -235,16 +235,17 @@ Agent نباید برای فهم یک تغییر کوچک، تمام فایل‌
 
 ## وضعیت فعلی که Agent باید بداند
 
-پیش از هر تغییر، این baseline را در نظر بگیر:
+پیش از هر تغییر، وضعیت مستندشدهٔ فعلی را در نظر بگیر و در صورت نیاز با source/test تازه تطبیق بده:
 
-- checkout رسمی توسعه همین مسیر repository و branch `main` است؛ worktree جداگانه لازم نیست.
-- منبع فعال فعلی فقط Apify Places با source=`places` است.
+- SQLite schema فعلی نسخهٔ 17 است.
+- منابع registry: Places و Google Search فعال‌اند؛ LinkedIn Jobs برای اجرای کنترل‌شده فعال است؛ Instagram، TikTok و `web` غیرفعال‌اند و YouTube connector فعال ندارد.
 - Campaign پیش‌فرض `general` هنگام initialize دیتابیس ساخته می‌شود و Run هر جست‌وجو به یک Campaign متصل است.
-- `campaign create/list/show`، export محدودشده با `--campaign` و ثبت Runهای ناموفق فعال هستند.
+- `campaign create/list/show`، export محدودشده با `--campaign`، queue/worker و ثبت Runهای ناموفق فعال هستند.
 - export مسیر خروجی را به‌صورت positional می‌گیرد: `export PATH --format csv|json [--campaign ID] [--db PATH]`.
-- آخرین اجرای کامل تست: `79 passed` با `pytest -q`.
-- `web`، Instagram، TikTok و YouTube هنوز قابلیت فعال و آمادهٔ استفاده نیستند.
-- مرحلهٔ بعدی نقشهٔ راه، کیفیت داده است: deduplication چندمنبعی، normalization کامل‌تر، provenance/evidence و فیلتر quality در export.
+- Jobها از lease/fencing و heartbeat استفاده می‌کنند؛ start مبهم Provider به `needs_review` می‌رود و نباید کورکورانه retry شود. cancellation باید run شناخته‌شده را abort کند.
+- raw Places دادهٔ allowlist‌شده است؛ فقط شمارش aggregate `reviewsCount` مجاز است و نباید متن/مشخصات reviewer نگه‌داری شود.
+- آخرین suite کامل پس از اصلاحات جاری: 214 موفق روی Python 3.14 با یک warning deprecation از Starlette/httpx؛ ماتریس قبلی پیش از این تغییرات 197 موفق در هرکدام از Python 3.10–3.14 داشت. CI matrix پیکربندی است، ولی اجرای GitHub Actions remote نیازمند repository remote است.
+- قابلیت‌های انجام‌شده را با موارد آینده اشتباه نگیر: quality/provenance، multi-source orchestration، execution platform و Web UI از قبل وجود دارند. محدودیت‌های باز فعلی شامل remote CI، smoke زندهٔ opt-in، تصمیم انسانی برای `needs_review`، احراز هویت پیش از هرگونه network bind، و نیازهای آیندهٔ کسب‌وکار مانند CRM/scheduling است.
 
 ## قالب اجباری گزارش درک پروژه
 

@@ -15,7 +15,7 @@ class ApifyPlacesConnector(Connector):
         {
             "title", "name", "address", "street", "phone", "phoneNumber",
             "website", "url", "categoryName", "rating", "reviewsCount",
-            "reviews", "placeId", "cid",
+            "placeId", "cid",
         }
     )
 
@@ -199,7 +199,7 @@ class ApifyPlacesConnector(Connector):
                 category=item.get("categoryName") or query,
                 source=cls.source,
                 rating=item.get("rating"),
-                reviews=item.get("reviewsCount") or item.get("reviews"),
+                reviews=item.get("reviewsCount"),
                 source_id=item.get("placeId") or item.get("cid"),
                 source_url=item.get("url"),
                 field_evidence={

@@ -12,6 +12,7 @@ from .errors import (
     ApifyError,
     ApifyMalformedResponseError,
     ApifyNotFoundError,
+    ApifyStartOutcomeUnknown,
     ApifyTransientError,
 )
 from .retry import RetryPolicy, retry
@@ -79,8 +80,29 @@ class ApifyClient:
         wait_for_finish: int = 0,
     ) -> dict[str, Any]:
         url = f"{self.base_url}/acts/{quote(actor, safe='~')}/runs"
-        payload = self._request_json("post", url, params={"waitForFinish": str(wait_for_finish)}, json=dict(input_data))
-        return self._validate_run_data(payload)
+        try:
+            response = self._client.post(
+                url,
+                headers=self._headers,
+                timeout=self.timeout,
+                params={"waitForFinish": str(wait_for_finish)},
+                json=dict(input_data),
+            )
+        except httpx.RequestError:
+            raise ApifyStartOutcomeUnknown("Apify Actor start outcome is unknown") from None
+        try:
+            self._classify_status(response.status_code)
+        except _RetryableRequestError:
+            if response.status_code == 429:
+                raise ApifyTransientError("Apify rate-limited the Actor start request") from None
+            raise ApifyStartOutcomeUnknown("Apify Actor start outcome is unknown") from None
+        try:
+            payload = response.json()
+            return self._validate_run_data(payload)
+        except ApifyMalformedResponseError:
+            raise ApifyStartOutcomeUnknown("Apify Actor start outcome is unknown") from None
+        except ValueError:
+            raise ApifyStartOutcomeUnknown("Apify Actor start outcome is unknown") from None
 
     def get_run(self, run_id: str) -> dict[str, Any]:
         if not run_id:

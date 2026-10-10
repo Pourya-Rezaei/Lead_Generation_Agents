@@ -6,6 +6,7 @@ from src.errors import (
     ApifyCredentialError,
     ApifyMalformedResponseError,
     ApifyNotFoundError,
+    ApifyStartOutcomeUnknown,
     ApifyTransientError,
 )
 from src.retry import RetryPolicy
@@ -171,6 +172,31 @@ def test_timeout_exhaustion_is_transient_and_safe():
     assert "top-secret-token" not in str(caught.value)
 
 
+def test_actor_start_timeout_is_not_retried_and_is_marked_unknown():
+    request = httpx.Request("POST", "https://api.apify.com/v2/acts/actor~name/runs")
+    transport = ScriptedClient([
+        httpx.ReadTimeout("top-secret-token", request=request),
+        response(200, {"data": {"id": "second-run"}}),
+    ])
+
+    with pytest.raises(ApifyStartOutcomeUnknown):
+        make_client(transport, attempts=2).start_actor("actor~name", {})
+
+    assert len(transport.requests) == 1
+
+
+def test_actor_start_server_error_is_not_retried_and_is_marked_unknown():
+    transport = ScriptedClient([
+        response(503, {"error": "temporarily unavailable"}),
+        response(200, {"data": {"id": "second-run"}}),
+    ])
+
+    with pytest.raises(ApifyStartOutcomeUnknown):
+        make_client(transport, attempts=2).start_actor("actor~name", {})
+
+    assert len(transport.requests) == 1
+
+
 @pytest.mark.parametrize(
     "payload",
     [
@@ -182,7 +208,7 @@ def test_timeout_exhaustion_is_transient_and_safe():
 def test_rejects_malformed_run_responses(payload):
     transport = ScriptedClient([response(200, payload)])
 
-    with pytest.raises(ApifyMalformedResponseError):
+    with pytest.raises(ApifyStartOutcomeUnknown):
         make_client(transport).run_actor("actor~name", {})
 
 

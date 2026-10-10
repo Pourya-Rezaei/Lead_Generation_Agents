@@ -1,5 +1,14 @@
 # تاریخچه تغییرات و وضعیت فعلی پروژه
 
+## رفع یافته‌های قابلیت اتکا و همگام‌سازی وضعیت (2026-10-10)
+
+- شروع Actor از retry عمومی جدا شد؛ timeout/قطع ارتباط/5xx یا پاسخ موفق نامعتبر به‌عنوان نتیجهٔ نامعلوم ثبت می‌شود و Job به `needs_review` می‌رود، در حالی که GETهای قابل retry رفتار قبلی را حفظ می‌کنند.
+- وضعیت `SearchResult` در handler به worker منتقل می‌شود؛ شکست/abort/timeout دیگر به موفقیت پیش‌فرض تبدیل نمی‌شود.
+- cancellation پس از ثبت run ID دوباره بررسی و به‌صورت اتمیک claim می‌شود تا درخواست abort تکراری نشود؛ شکست نامعلوم abort به `needs_review` می‌رود و abort هنگام لغو به `cancelled` ختم می‌شود.
+- فیلد `reviews` از raw Places و mapping لید حذف شد؛ فقط `reviewsCount` aggregate حفظ می‌شود. تجمیع چندمنبعی اکنون `partial` را مستقل از موفقیت کامل حفظ می‌کند.
+- roadmap، راهنمای شناخت پروژه و مستند Apify با وضعیت فعلی منابع، worker، lifecycle، حریم خصوصی و تست‌ها همگام شدند.
+- suite کامل Python 3.14: `216 passed, 1 warning`؛ warning deprecation مربوط به Starlette/httpx است. ماتریس قبلی Python 3.10–3.14 با 197 تست در هر نسخه مربوط به پیش از این اصلاحات است؛ اجرای remote CI هنوز تأیید نشده است. تست‌ها با mock اجرا شدند و Actor پولی فراخوانی نشد.
+
 ## تکمیل lifecycle و lineage پایدار (2026-10-10)
 
 - schema به نسخهٔ 17 رسید: campaign membership اکنون فقط `(campaign_id, lead_id)` دارد و provider attempts هویت run/dataset، وضعیت، checkpoint و cancellation را پایدار نگه می‌دارند.

@@ -6,8 +6,10 @@ from .errors import (
     ApifyError,
     ApifyMalformedResponseError,
     ApifyNotFoundError,
+    ApifyStartOutcomeUnknown,
     ApifyTransientError,
     CampaignNotFoundError,
+    ProviderAbortOutcomeUnknown,
     SearchAttemptPersistenceError,
 )
 from .registry import ConnectorRegistry, SourceCapability
@@ -20,6 +22,10 @@ def _safe_error_summary(error: Exception) -> str:
         return "Apify rejected the configured credentials."
     if isinstance(error, ApifyNotFoundError):
         return "Apify actor or endpoint was not found."
+    if isinstance(error, ApifyStartOutcomeUnknown):
+        return "Apify Actor start outcome is unknown and requires review."
+    if isinstance(error, ProviderAbortOutcomeUnknown):
+        return "Provider run abort outcome is unknown and requires review."
     if isinstance(error, ApifyTransientError):
         return "Apify request failed after retries."
     if isinstance(error, ApifyMalformedResponseError):

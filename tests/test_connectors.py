@@ -1,7 +1,11 @@
+import json
+import sqlite3
+
 import pytest
 
 from src.connectors.apify_places import ApifyPlacesConnector
 from src.results import RunStatus, SearchResult
+from src.storage import LeadStore
 
 
 class FakeApifyClient:
@@ -203,6 +207,41 @@ def test_maps_provenance_and_allowlists_raw_records():
     ]
     assert places.raw_items == result.raw_records
     assert places.last_run["run_id"] == "run-9"
+
+
+def test_places_keeps_review_count_but_discards_reviewer_details(tmp_path):
+    places, _ = connector(
+        {"id": "run-private", "defaultDatasetId": "ds-private", "status": "SUCCEEDED"},
+        [{
+            "title": "Cafe",
+            "reviewsCount": 12,
+            "reviews": [{"name": "Reviewer Example", "text": "Personal review text", "profileUrl": "https://example.test/reviewer"}],
+        }],
+    )
+
+    result = places.search("cafe", "town")
+
+    assert result.leads[0].reviews == 12
+    assert "reviews" not in result.raw_records[0]
+    assert "Reviewer Example" not in str(result.model_dump())
+    assert "Personal review text" not in str(result.model_dump())
+    store = LeadStore(str(tmp_path / "privacy.db"))
+    store.persist_search_result("general", result, "cafe", "town")
+    with sqlite3.connect(tmp_path / "privacy.db") as db:
+        persisted = db.execute(
+            "SELECT payload FROM raw_records WHERE run_id = 'run-private'"
+        ).fetchone()[0]
+    assert "Reviewer Example" not in persisted
+    assert "Personal review text" not in persisted
+    assert "reviews" not in json.loads(persisted)
+
+    places_without_count, _ = connector(
+        {"id": "run-no-count", "defaultDatasetId": "ds-no-count", "status": "SUCCEEDED"},
+        [{"title": "Cafe", "reviews": [{"name": "Reviewer Example", "text": "Personal review text"}]}],
+    )
+    result_without_count = places_without_count.search("cafe", "town")
+    assert result_without_count.leads[0].reviews is None
+    assert "reviews" not in result_without_count.raw_records[0]
 
 
 def test_unknown_actor_status_is_rejected_before_dataset_retrieval():

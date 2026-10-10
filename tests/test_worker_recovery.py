@@ -2,6 +2,7 @@ import sqlite3
 import time
 
 from src.domain import Lead
+from src.errors import ApifyStartOutcomeUnknown
 from src.execution.cache import ExecutionCache
 from src.execution.jobs import JobRepository
 from src.execution.worker import JobWorker
@@ -24,6 +25,26 @@ def test_worker_records_handler_failure_without_raw_error():
         result = JobWorker(db, "worker-1").run_once(lambda request: (_ for _ in ()).throw(RuntimeError("secret payload")))
         assert result and result.state == "failed"
         assert result.error_code == "RuntimeError"
+
+
+def test_worker_routes_unknown_actor_start_to_needs_review():
+    with sqlite3.connect(":memory:") as db:
+        migrate(db)
+        job = JobRepository(db).submit({"query": "cafe"}, "unknown-actor-start")
+        worker = JobWorker(db, "worker-1")
+
+        def handler(request):
+            JobRepository(db).record_provider_attempt(
+                request["_job_id"], "places", status="starting",
+                worker_id=request["_worker_id"], fencing_token=request["_fencing_token"],
+            )
+            raise ApifyStartOutcomeUnknown("safe message")
+
+        result = worker.run_once(handler)
+
+        assert result is not None and result.state == "needs_review"
+        assert result.error_code == "ProviderStartOutcomeUnknown"
+        assert JobRepository(db).provider_attempts(job.job_id)[0]["status"] == "starting"
 
 
 def test_worker_replays_cached_membership(tmp_path):
@@ -70,6 +91,23 @@ def test_worker_heartbeats_long_running_file_job(tmp_path):
         assert verify.execute("SELECT state FROM jobs").fetchone()[0] == "succeeded"
 
 
+def test_worker_preserves_provider_run_terminal_state():
+    with sqlite3.connect(":memory:") as db:
+        migrate(db)
+        JobRepository(db).submit({"query": "cafe"}, "provider-aborted")
+        result = JobWorker(db, "worker-1").run_once(
+            lambda request: {
+                "state": "aborted",
+                "completed_steps": ["places"],
+                "provider_run_id": "run-aborted",
+            }
+        )
+
+        assert result is not None and result.state == "failed"
+        assert result.provider_run_id == "run-aborted"
+        assert result.provider_state == "ABORTED"
+
+
 def test_worker_rejects_unknown_handler_state():
     db = sqlite3.connect(":memory:")
     migrate(db)
@@ -94,12 +132,15 @@ def test_worker_preserves_partial_multi_source_result():
         assert result.progress["completed_steps"] == ["places"]
 
 
-def test_cancel_requested_job_is_not_reported_successful():
+def test_cancel_requested_aborted_result_finishes_as_cancelled():
     with sqlite3.connect(":memory:") as db:
         migrate(db)
-        job = JobRepository(db).submit({"query": "cafe"}, "key-1")
-        repo = JobRepository(db)
-        claimed = repo.claim("worker-1")
-        repo.request_cancel(job.job_id)
-        result = JobWorker(db, "worker-1")._finish if False else repo.get(job.job_id)
-        assert result and result.state == "cancel_requested"
+        job = JobRepository(db).submit({"query": "cafe"}, "key-cancelled-abort")
+
+        def handler(request):
+            JobRepository(db).request_cancel(job.job_id)
+            return {"state": "aborted", "completed_steps": []}
+
+        result = JobWorker(db, "worker-1").run_once(handler)
+
+        assert result and result.state == "cancelled"
