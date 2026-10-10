@@ -13,6 +13,7 @@ from ..service import _safe_error_summary
 from ..registry import DisabledSourceError
 from ..social_service import SocialSearchRequest
 from ..orchestration import MultiSourceOrchestrator
+from ..connectors.social_profiles import SOCIAL_ACTOR_ADAPTERS
 from .schemas import CampaignForm
 
 router = APIRouter()
@@ -103,6 +104,31 @@ def _templates(request: Request):
 def _source_capabilities(request: Request):
     capabilities = request.app.state.service.source_capabilities()
     return capabilities if isinstance(capabilities, tuple) else ()
+
+
+@router.get("/api/source-contracts")
+def api_source_contracts():
+    return [
+        {
+            "platform": connector.platform,
+            "actor": connector.actor,
+            "docs_url": connector.contract.docs_url,
+            "pricing_summary": connector.contract.pricing_summary,
+            "status": connector.contract.gate_report.status,
+            "failed_gates": connector.contract.gate_report.failed_gates,
+            "execution_policy": connector.contract.execution_policy,
+        }
+        for connector in SOCIAL_ACTOR_ADAPTERS.values()
+    ]
+
+
+@router.get("/sources", response_class=HTMLResponse)
+def sources_page(request: Request):
+    return _templates(request).TemplateResponse(
+        request=request,
+        name="sources.html",
+        context={"contracts": api_source_contracts()},
+    )
 
 
 @router.get("/jobs", response_class=HTMLResponse)

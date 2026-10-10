@@ -4,6 +4,17 @@ from src.config import Settings
 from src.web.app import create_app
 
 
+def test_source_contracts_remain_blocked(tmp_path):
+    app = create_app(Settings(database_path=str(tmp_path / "sources.db"), _env_file=None))
+    client = TestClient(app)
+    contracts = client.get("/api/source-contracts")
+    page = client.get("/sources")
+    assert contracts.status_code == 200
+    assert all(item["status"] == "blocked" for item in contracts.json())
+    assert page.status_code == 200
+    assert "دروازه‌های باقی‌مانده" in page.text
+
+
 def test_jobs_history_and_detail_render(tmp_path):
     database = str(tmp_path / "history.db")
     app = create_app(Settings(database_path=database, _env_file=None))

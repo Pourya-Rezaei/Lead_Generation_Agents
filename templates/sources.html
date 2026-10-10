@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}وضعیت منابع · نقشهٔ لید{% endblock %}
+{% block content %}
+<section class="hero"><span class="eyebrow">قرارداد و هزینه</span><h1>وضعیت منابع</h1><p>هیچ Actor پولی بدون عبور از همهٔ دروازه‌های schema، حریم خصوصی و قیمت اجرا نمی‌شود.</p></section>
+<div class="grid">{% for item in contracts %}<article class="card"><h2>{{ item.platform }}</h2><p><code>{{ item.actor }}</code></p><p>{{ item.pricing_summary }}</p><p class="error">وضعیت: {{ item.status }} · دروازه‌های باقی‌مانده: {{ item.failed_gates|join('، ') }}</p><a class="btn secondary" href="{{ item.docs_url }}" rel="noreferrer">مستندات رسمی</a></article>{% endfor %}</div>
+{% endblock %}
