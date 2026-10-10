@@ -1,88 +1,110 @@
 # معماری
 
+این سند snapshot معماری اجرایی فعلی پروژه است؛ یعنی علاوه بر مسیر قدیمی synchronous، مسیر Job/Worker، انتخاب چندمنبع، کنترل هزینه و بازبینی پروفایل عمومی را نیز نشان می‌دهد. وضعیت قابلیت‌ها باید با `ConnectorRegistry.capabilities()` و contract gateها هماهنگ بماند.
+
 ## نمودار معماری و جریان داده
 
 ```mermaid
 flowchart LR
-    U[کاربر] --> CLI[CLI\nsearch / campaign / export]
-    ENV[Environment\nAPIFY_API_TOKEN + config] --> CFG[Settings]
+    USER["کاربر"] --> CLI["CLI<br/>search / campaign / export"]
+    BROWSER["مرورگر محلی"] --> WEB["FastAPI + Jinja<br/>RTL / localhost-only"]
+    ENV["Environment<br/>APIFY_API_TOKEN + settings"] --> CFG["Settings"]
     CLI --> CFG
-    CLI --> SVC[SearchLeadsService]
-    BROWSER[مرورگر محلی] --> WEB[FastAPI Web UI]
+    WEB --> CFG
+
+    CLI --> SVC["SearchLeadsService<br/>هم‌زمان و سازگار با مسیر قدیمی"]
     WEB --> SVC
-    WEB --> STORE[LeadStore]
-    CFG --> SVC
+    SVC --> REG["ConnectorRegistry<br/>capabilities + select_sources"]
+    REG --> PLACES["Places Connector<br/>فعال"]
+    REG --> GSEARCH["Google Search Connector<br/>فعال برای مسیرهای پشتیبانی‌شده"]
+    REG -.-> SOCIAL["Instagram / TikTok / YouTube<br/>contract gate: blocked"]
 
-    SVC --> REG[ConnectorRegistry]
-    REG --> PLACES[Places Connector\nفعال در MVP]
-    REG -.-> WEB[Web Connector\nغیرفعال]
+    PLACES --> APIFY["ApifyClient<br/>header auth / timeout / retry"]
+    GSEARCH --> APIFY
+    APIFY --> ACTORS["Apify Actors"]
+    ACTORS --> DATASET["Dataset / run status"]
+    DATASET --> RESULT["SearchResult<br/>status + provenance + allowlisted raw"]
+    RESULT --> PIPE["normalization<br/>validation / scoring / identity matching"]
+    PIPE --> PERSIST["persist_search_result<br/>transactional"]
 
-    PLACES --> API[Apify API]
-    API --> ACT[Actor\ncompass~crawler-google-places]
-    ACT --> DS[Dataset]
-    DS --> MAP[Lead mapping\nsource + provenance]
+    SVC --> ORCH["MultiSourceOrchestrator<br/>partial outcome"]
+    ORCH --> RESULT
 
-    MAP --> NORM[Normalization]
-    NORM --> QUALITY[Validation + scoring]
-    QUALITY --> TX[Transactional persistence]
+    WEB --> JOBAPI["Job API<br/>submit / status / retry / cancel"]
+    CLI --> JOBAPI
+    JOBAPI --> JOBSVC["JobService"]
+    JOBSVC --> JOBDB[(jobs)]
+    JOBSVC --> WORKER["JobWorker<br/>lease + fencing token"]
+    WORKER --> HANDLERS["handlers<br/>places / multi-source"]
+    HANDLERS --> SVC
+    WORKER --> CACHE["ExecutionCache"]
+    WORKER --> BUDGET["BudgetRepository<br/>reserve / reconcile"]
+    CACHE --> JOBDB
+    BUDGET --> JOBDB
 
-    TX --> LEADS[(leads)]
-    TX --> CAMPAIGNS[(campaigns)]
-    TX --> MEMBERS[(campaign_leads)]
-    TX --> RUNS[(runs)]
-    TX --> RAW[(raw_records)]
+    PERSIST --> DB[(SQLite)]
+    DB --> TABLES["leads / campaigns / campaign_leads<br/>runs / raw_records / observations<br/>field_evidence / profiles / jobs / budget"]
+    DB --> EXPORT["Exporters"]
+    EXPORT --> JSON["JSON"]
+    EXPORT --> CSV["CSV"]
 
-    LEADS --> EXP[Export service]
-    MEMBERS --> EXP
-    EXP --> JSON[JSON]
-    EXP --> CSV[CSV]
+    GSEARCH --> ENRICH["Enrichment<br/>public profile candidates"]
+    ENRICH --> PROFILES["ProfileRepository<br/>explicit review + evidence"]
+    PROFILES --> REVIEW["Web profile review page"]
 
-    SVC -. failure .-> FAIL[Failed run\nno Lead/raw persistence]
-    FAIL --> RUNS
-
-    PRIV[Privacy boundary\npublic professional business data only] -. governs .-> MAP
-    PRIV -. governs .-> RAW
+    SVC -.-> FAIL["Failed Run<br/>no lead/raw persistence"]
+    FAIL --> DB
+    PRIV["Privacy boundary<br/>public professional business data only<br/>no owner inference"] -.-> RESULT
+    PRIV -.-> RAWPOLICY["raw allowlist / export"]
 ```
 
-### تفسیر مسیر اصلی
+### تفسیر مسیرهای اصلی
 
-1. CLI ورودی query، location، source، limit و Campaign را می‌گیرد و تنظیمات را از Environment می‌خواند.
-2. `SearchLeadsService` اجرای use case را به `ConnectorRegistry` می‌سپارد؛ در MVP فقط Places فعال است.
-3. Connector از طریق Apify Actor اجرا می‌شود، dataset را می‌خواند و رکوردها را با حفظ source/provenance به `Lead` نگاشت می‌کند.
-4. normalization، validation و scoring قبل از یک تراکنش SQLite انجام می‌شوند.
-5. هر Lead در `leads` یکتا نگه داشته می‌شود و عضویت آن در Campaignها در `campaign_leads` ثبت می‌شود؛ metadata، run و raw record نیز جدا ذخیره می‌شوند.
-6. Export از وضعیت فعلی Leadها، به‌صورت سراسری یا محدود به Campaign، JSON یا CSV تولید می‌کند.
+1. **جست‌وجوی هم‌زمان:** CLI یا Web UI ورودی query، location، source، limit و Campaign را به `SearchLeadsService` می‌دهد. سرویس منبع را قبل از ساخت Connector اعتبارسنجی می‌کند، Actor را اجرا می‌کند، رکوردها را به `SearchResult` و سپس به Lead استاندارد تبدیل می‌کند و نتیجه را در یک تراکنش SQLite ذخیره می‌کند.
+2. **چندمنبعی:** `select_sources()` انتخاب را اتمیک و پیش از اجرای Actor اعتبارسنجی می‌کند. `MultiSourceOrchestrator` هر منبع را مستقل اجرا می‌کند و وضعیت `succeeded`، `partial` یا `failed` و گام‌های موفق را حفظ می‌کند؛ شکست یک منبع نتیجهٔ منابع موفق را حذف نمی‌کند.
+3. **Job/Worker:** APIهای `/api/jobs` و `/api/orchestrated-searches` درخواست را با `idempotency_key` در `jobs` ثبت می‌کنند. Worker با lease و fencing token یک Job را claim می‌کند، handler مناسب را اجرا می‌کند، progress و provider run را ثبت می‌کند و برای failure/partial/cancel وضعیت نهایی می‌سازد. retry از مسیر API یک کلید جدید ایجاد می‌کند.
+4. **کنترل هزینه و تکرارپذیری:** Worker در صورت وجود `estimated_cost` از `BudgetRepository` reservation می‌گیرد و پس از اجرا reconcile می‌کند. `ExecutionCache` برای درخواست‌های قابل cache استفاده می‌شود؛ `force_refresh` آن را دور می‌زند.
+5. **غنی‌سازی محافظه‌کارانه:** Google Search می‌تواند فقط کاندیدای پروفایل عمومی HTTPS را پیدا کند. شهر، دامنهٔ رسمی و evidence برای confidence به‌کار می‌روند؛ تطبیق نهایی و review صریح در `ProfileRepository` انجام می‌شود و مالکیت شخصی هرگز استنتاج نمی‌شود.
+6. **خروجی:** Exporter از Leadهای ذخیره‌شده، به‌صورت سراسری یا محدود به Campaign، JSON یا CSV می‌سازد و مسیرهای مقصد تو‌در‌تو را ایجاد می‌کند.
 
-### مسیر خطا و مرز حریم خصوصی
+### مسیر خطا، امنیت و حریم خصوصی
 
-خطاهای credential، timeout/network، پاسخ malformed و dataset نامعتبر به‌عنوان `Run` ناموفق ثبت می‌شوند؛ برای Run شکست‌خورده Lead یا raw record ذخیره نمی‌شود. توکن فقط در Header احراز هویت Apify استفاده می‌شود و هرگز در URL، log یا metadata قرار نمی‌گیرد. همهٔ داده‌ها باید عمومی و حرفه‌ای و مرتبط با کسب‌وکار باشند.
+خطاهای credential، timeout/network، endpoint/Actor ناموجود، پاسخ malformed و dataset نامعتبر به‌عنوان failure ثبت می‌شوند و برای Run شکست‌خورده Lead یا raw record جدید ذخیره نمی‌شود. توکن فقط از Environment خوانده و در Header به Apify ارسال می‌شود؛ در URL، log، metadata و export قرار نمی‌گیرد. raw payload با allowlist محدود است. فقط دادهٔ عمومی و حرفه‌ای مرتبط با کسب‌وکار مجاز است و دادهٔ reviewer/owner یا استنتاج مالکیت خارج از scope است.
 
-## جریان داده
+## جریان دادهٔ خلاصه
 
 ```text
-CLI -> Settings -> Connector -> Apify Actor -> Dataset
-    -> Lead mapping -> normalize -> score -> SQLite -> JSON/CSV
+CLI/Web -> Settings -> Service -> Registry -> Connector -> Apify Actor
+       -> SearchResult -> normalize/validate/score/match -> SQLite
+       -> Campaign membership + provenance + run/raw metadata -> JSON/CSV
+
+Web/CLI -> JobService -> jobs -> JobWorker -> handler -> Service
+                         -> lease/fencing + cache + budget + progress
+
+Lead + Google Search candidates -> evidence/confidence -> explicit profile review
 ```
 
-## اجزا
+## اجزا و مرزها
 
-- CLI: اعتبارسنجی ورودی و نمایش نتیجه؛ بدون orchestration یا scraping logic.
-- Web UI: رابط فارسی/RTL برای Dashboard، Campaign، جست‌وجوی Places و export؛ بدون SQL مستقیم یا اتصال مستقیم به Apify.
-- `SearchLeadsService`: اجرای use case، lifecycle اجرا، ذخیره لید و metadata.
-- `ConnectorRegistry`: انتخاب منبع؛ در MVP فقط `places` فعال است و `web` غیرفعال است.
-- Connector: اجرای منبع و برگرداندن `SearchResult` شامل leads، status، provenance و raw records محدود.
-- Domain: مدل `Lead`، نرمال‌سازی، validation، امتیازدهی و تطبیق هویت.
-- Storage: migration نسخه‌دار SQLite، repositoryها، upsert و export.
-- Apify client: authentication امن، timeout، retry محدود و دریافت Actor/dataset.
+- **CLI (`src/cli.py`):** validation، dispatch و نمایش خلاصه؛ منطق scraping و persistence در CLI نیست.
+- **Web (`src/web/`):** routeهای Dashboard، Campaign، search، export، Job و profile review؛ فارسی/RTL و local-only. routeها از service/repository استفاده می‌کنند و نباید Actor را مستقیم صدا بزنند.
+- **Service و orchestration (`src/service.py`, `src/orchestration.py`):** lifecycle جست‌وجو، failure recording، انتخاب منبع و حفظ نتیجهٔ partial.
+- **Execution (`src/execution/`):** `JobService`، `JobRepository`، Worker، handlerها، lease/fencing، cache و budget reservation.
+- **Registry و connectorها (`src/registry.py`, `src/connectors/`):** قرارداد source، descriptor قابلیت‌ها، validation و اتصال Places/Google Search؛ social connectorها تا عبور contract gate غیرفعال‌اند.
+- **Domain و quality (`src/domain.py`, `src/quality/`):** Lead، normalization، validation، scoring، dedup/matching، provenance و profile evidence.
+- **Apify (`src/apify.py`):** احراز هویت امن، timeout، retry محدود، اجرای Actor، دریافت dataset و طبقه‌بندی خطا.
+- **Persistence (`src/migrations.py`, `src/storage.py`, `src/repositories.py`):** migration نسخه‌دار و transaction-based SQLite، repositoryهای Lead/Campaign/Run و سازگاری `LeadStore`.
+- **Export (`src/exporters.py`):** JSON/CSV iterator-based، حالت extended برای provenance و محافظت CSV در برابر formula injection.
 
-## تصمیم‌های طراحی
+## تصمیم‌های طراحی و وضعیت قابلیت‌ها
 
-- Apify پشت Connector پنهان است.
-- token فقط از Environment خوانده می‌شود.
-- Actor ID در URL API با `~` نوشته می‌شود.
-- اجرای Places با `waitForFinish=60` انجام می‌شود.
-- منبع هر رکورد با `source` مشخص می‌شود.
+- Apify پشت Connector پنهان است و token فقط از Environment می‌آید.
+- Actor ID در URL API با `~` نوشته می‌شود و Places با `waitForFinish=60` اجرا می‌شود.
+- هر record منبع و provenance دارد؛ raw فقط با allowlist ذخیره می‌شود.
+- API Job idempotent است؛ lifecycle آن queued/running/succeeded/partial/failed/cancelled است.
+- `places` فعال است؛ `google_search` در مسیرهای پشتیبانی‌شده استفاده می‌شود؛ Instagram، TikTok، YouTube و هر source فاقد contract gate فعال، blocked باقی می‌مانند.
+- Web UI روی `127.0.0.1` است و در MVP احراز هویت، چندکاربره‌بودن و queue بیرونی ندارد؛ Worker فعلی یک abstraction قابل اتصال به اجرای بیرونی است.
 
-## توسعه آینده
+## توسعهٔ آینده
 
-Connectorهای Instagram، TikTok و YouTube باید همین قرارداد را پیاده کنند. تطبیق social profile باید امتیاز و evidence داشته باشد و صرفاً بر اساس نام ادغام نشود.
+فعال‌سازی social source فقط پس از تأیید هم‌زمان schema ورودی، privacy و pricing در contract gate مجاز است. هر connector جدید باید قرارداد `SearchResult`، provenance، failure classification، budget behavior و تست‌های آفلاین را رعایت کند. توسعهٔ profile matching باید evidence-based بماند و هرگز از نام یا قرائن برای استنتاج مالکیت استفاده نکند.

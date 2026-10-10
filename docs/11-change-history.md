@@ -1,5 +1,12 @@
 # تاریخچه تغییرات و وضعیت فعلی پروژه
 
+## به‌روزرسانی index حافظهٔ کد (2026-10-10)
+
+- index پایدار CBM پس از اضافه‌شدن تغییرات جدید پروژه دوباره ساخته شد.
+- وضعیت: `ready`؛ ۱٬۰۹۲ node و ۴٬۴۲۶ edge؛ `parse_unusable: 0`.
+- یک هشدار `parse_partial` برای `templates/search.html` در خطوط ۱۱ و ۱۹ ثبت شد؛ تحلیل template در این خطوط best-effort است.
+- `.env` و دیتابیس محلی همچنان خارج از index هستند؛ artifact در `.codebase-memory/` قرار دارد و طبق policy نباید commit شود.
+
 ## تکمیل فاز E: دروازه قرارداد Actorهای اجتماعی (2026-10-10)
 
 - metadata صفحات رسمی Apify Store و خلاصه قیمت Instagram، TikTok و YouTube ثبت شد.
@@ -178,3 +185,12 @@ Web smoke routes   -> /, /campaigns, /search و /static/styles.css موفق
 - branch اصلی: `main`
 - آخرین commitهای مرتبط: `e5ffd4b` برای Campaignها، `57f6612` برای ثبت failureها، `669c84d` برای ایزوله‌کردن regression test از `.env`
 - فایل‌های حساس مانند `.env` در commit وارد نشده‌اند.
+
+## به‌روزرسانی نمودار معماری اجرایی (2026-10-10)
+
+- `docs/04-architecture.md` با وضعیت واقعی CBM و source code همگام شد: ۱٬۰۹۲ node، ۴٬۴۲۶ edge و `parse_unusable: 0`.
+- مسیرهای Job/Worker، idempotency، lease/fencing، retry/cancel، cache و budget reservation به نمودار اضافه شدند.
+- انتخاب چندمنبعی و نتیجهٔ partial، Google Search و enrichment پروفایل عمومی، evidence-based review و contract gate منابع اجتماعی مستند شدند.
+- مرزهای privacy، allowlist raw، failure persistence و محدودیت‌های Web UI محلی صریح‌تر شدند.
+- این تغییر فقط مستنداتی است و قرارداد اجرایی یا schema را تغییر نمی‌دهد.
+- syntax نمودار برای سازگاری با rendererهای Mermaid ساده‌سازی شد: labelها quote شدند، شکست خط به `<br/>` تبدیل شد و brace/edge-labelهای حساس حذف شدند.
