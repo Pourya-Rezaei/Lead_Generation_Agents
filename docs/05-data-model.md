@@ -25,11 +25,25 @@
 
 ## Normalization
 
-نام، فاصله‌ها، URL و مقادیر خالی پیش از ذخیره normalize می‌شوند. رکوردهای یکسان باید با upsert از تکثیر غیرضروری جلوگیری کنند.
+نام، فاصله‌ها، URL و مقادیر خالی پیش از ذخیره normalize می‌شوند. رکوردهای یکسان باید با upsert از تکثیر غیرضروری جلوگیری کنند. ماژول `src/quality/normalization.py` کلید canonical را بدون تغییر مقدار نمایشی تولید می‌کند و حروف عربی/فارسی را فقط برای جست‌وجوی هویت همسان می‌سازد.
+
+## Schema version 3: identity و provenance
+
+هر Lead اکنون یک `lead_id` پایدار مستقل از تغییر نام، آدرس یا تلفن دارد. جدول append-only `observations` منبع، source record ID، Run، زمان گردآوری و فیلدهای مشاهده‌شده را نگه می‌دارد و `field_evidence` شواهد هر فیلد را ثبت می‌کند. migration نسخهٔ ۳ برای دیتابیس تازه و legacy idempotent است و در failure rollback می‌شود.
+
+برای سازگاری، `campaign_leads` و export پیش‌فرض فعلاً از کلید legacy استفاده می‌کنند؛ تغییر کامل membership به `lead_id` در migration جداگانه و پس از بررسی دادهٔ واقعی انجام می‌شود. `lead_id` در upsert با source/source_id ثابت می‌ماند، حتی اگر تلفن یا فیلدهای mutable تغییر کند.
 
 ## کیفیت و provenance
 
-نسخه آینده باید برای هر مقدار source URL، زمان جمع‌آوری و raw record ID نگه دارد. داده‌ای که صرفاً از تشابه نام به دست آمده، مالکیت قطعی محسوب نمی‌شود.
+matching محافظه‌کارانه است: source ID یکسان merge، domain+address یکسان merge، شعبه‌های متفاوت separate و شواهد ضعیف review می‌شوند. نبود evidence به‌معنای false بودن داده نیست و confidence ناشناخته باید ناشناخته بماند. داده‌ای که صرفاً از تشابه نام به دست آمده، مالکیت قطعی محسوب نمی‌شود.
+
+`src/quality/metrics.py` completeness را جدا از score قدیمی محاسبه می‌کند. export CLI فیلترهای اختیاری `--min-completeness`، `--has-phone` و `--has-website` دارد؛ بدون این flags قرارداد JSON/CSV قبلی تغییر نمی‌کند. جدول `lead_merge_audit` دلیل، confidence، زمان و snapshot رکورد ادغام‌شده را نگه می‌دارد تا merge قابل audit و undo باشد.
+
+## مشاهدات پلتفرمی مستقل
+
+`PlatformObservation` در `src/results.py` برای نتایج اختیاری و مستقل Instagram، YouTube و TikTok استفاده می‌شود. فیلدهای مشترک کسب‌وکار (`name`، توضیح، location، website و phone) کنار `metadata` مخصوص پلتفرم و `contact_links` نگه‌داری می‌شوند؛ بنابراین فعال‌سازی یا شکست یک جست‌وجوی پلتفرمی، نتیجه Places را تغییر نمی‌دهد. Connectorهای اجتماعی فعلاً disabled-by-default هستند و هیچ Actor پولی اجرا نمی‌شود.
+
+لینک‌های تماس با allowlist قطعی فقط HTTPS و دامنه‌های حرفه‌ای شناخته‌شده (خود پلتفرم، WhatsApp/Telegram) پذیرفته می‌شوند؛ ایمیل، نام مالک و فیلدهای شخصی حذف می‌شوند. URL پروفایل نیز باید به دامنه همان پلتفرم تعلق داشته باشد.
 
 ## حریم خصوصی
 

@@ -10,13 +10,108 @@ from ..errors import (
     ApifyTransientError,
 )
 from ..service import _safe_error_summary
+from ..registry import DisabledSourceError
+from ..social_service import SocialSearchRequest
+from ..orchestration import MultiSourceOrchestrator
 from .schemas import CampaignForm
 
 router = APIRouter()
 
 
+@router.post("/api/social-searches")
+def api_submit_social_search(request: Request, payload: SocialSearchRequest):
+    """Validate a public social request without activating disabled Actors."""
+    try:
+        selected = request.app.state.social_service.validate(payload)
+        results = request.app.state.social_service.search(payload)
+    except DisabledSourceError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {
+        "mode": payload.mode,
+        "sources": [capability.name for capability in selected],
+        "results": results,
+    }
+
+
+@router.post("/api/orchestrated-searches")
+def api_submit_orchestrated_search(request: Request, payload: dict):
+    sources = payload.get("sources")
+    if not isinstance(sources, list) or not sources:
+        raise HTTPException(status_code=422, detail="sources must be a non-empty list")
+    try:
+        request.app.state.service.select_sources(sources)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail="selected source is unavailable") from exc
+    from ..execution.service import JobService
+    key = str(payload.get("idempotency_key", "")).strip()
+    if not key:
+        raise HTTPException(status_code=422, detail="idempotency_key is required")
+    job = JobService(request.app.state.settings.database_path).submit(payload, key)
+    return {"job_id": job.job_id, "state": job.state, "sources": sources}
+
+
+@router.post("/api/jobs")
+def api_submit_job(request: Request, payload: dict):
+    from ..execution.service import JobService
+    required = {"query", "location"}
+    if not required <= payload.keys():
+        raise HTTPException(status_code=422, detail="query and location are required")
+    key = str(payload.get("idempotency_key", "")).strip()
+    if not key:
+        raise HTTPException(status_code=422, detail="idempotency_key is required")
+    job = JobService(request.app.state.settings.database_path).submit(payload, key)
+    return {"job_id": job.job_id, "state": job.state}
+
+
+@router.get("/api/jobs/{job_id}")
+def api_job_status(request: Request, job_id: str):
+    from ..execution.service import JobService
+    job = JobService(request.app.state.settings.database_path).get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"job_id": job.job_id, "state": job.state, "progress": job.progress, "error_code": job.error_code}
+
+
+@router.post("/api/jobs/{job_id}/cancel")
+def api_cancel_job(request: Request, job_id: str):
+    from ..execution.service import JobService
+    job = JobService(request.app.state.settings.database_path).cancel(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"job_id": job.job_id, "state": job.state}
+
+
 def _templates(request: Request):
     return request.app.state.templates
+
+
+def _source_capabilities(request: Request):
+    capabilities = request.app.state.service.source_capabilities()
+    return capabilities if isinstance(capabilities, tuple) else ()
+
+
+@router.get("/api/profile-candidates/{lead_id}")
+def api_profile_candidates(request: Request, lead_id: str):
+    import sqlite3
+    with sqlite3.connect(request.app.state.settings.database_path) as db:
+        rows = db.execute("SELECT candidate_id, platform, url, status, confidence, evidence, review_reason FROM profile_candidates WHERE lead_id = ? ORDER BY created_at", (lead_id,)).fetchall()
+    return [{"candidate_id": r[0], "platform": r[1], "url": r[2], "status": r[3], "confidence": r[4], "evidence": r[5], "review_reason": r[6]} for r in rows]
+
+
+@router.post("/api/profile-candidates/{candidate_id}/review")
+def api_review_profile(request: Request, candidate_id: str, payload: dict):
+    from ..quality.profiles import ProfileRepository
+    import sqlite3
+    status = str(payload.get("status", ""))
+    reason = str(payload.get("reason", ""))
+    with sqlite3.connect(request.app.state.settings.database_path) as db:
+        try:
+            ProfileRepository(db).review(candidate_id, status, reason)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        if db.execute("SELECT changes()").fetchone()[0] == 0:
+            raise HTTPException(status_code=404, detail="Profile candidate not found")
+    return {"candidate_id": candidate_id, "status": status}
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -105,7 +200,11 @@ def search_form(request: Request):
     return _templates(request).TemplateResponse(
         request=request,
         name="search.html",
-        context={"campaigns": request.app.state.store.campaigns(), "source": "places"},
+        context={
+            "campaigns": request.app.state.store.campaigns(),
+            "source": "places",
+            "sources": _source_capabilities(request),
+        },
     )
 
 
@@ -116,28 +215,34 @@ def run_search(
     location: str = Form(...),
     campaign_id: str = Form(...),
     limit: str = Form("20"),
-    source: str = Form("places"),
+    source: list[str] = Form(default=["places"]),
 ):
+    sources = list(dict.fromkeys(source))
     form = {
         "query": query,
         "location": location,
         "campaign_id": campaign_id,
         "limit": limit,
+        "sources": sources,
     }
     campaigns = request.app.state.store.campaigns()
     try:
-        if source != "places":
-            raise ValueError("Only the places source is enabled.")
         parsed_limit = int(limit)
+        if any(item not in {"places", "google_search"} for item in sources):
+            raise ValueError("Selected source is not enabled.")
         if not query.strip() or not location.strip():
             raise ValueError("Query and location are required.")
-        result = request.app.state.service.search(
-            query,
-            location,
-            source=source,
-            limit=parsed_limit,
-            campaign_id=campaign_id,
-        )
+        if len(sources) == 1:
+            request.app.state.service.search(
+                query, location, source=sources[0], limit=parsed_limit, campaign_id=campaign_id
+            )
+            result = {"state": "succeeded", "completed_steps": sources}
+        else:
+            result = MultiSourceOrchestrator(request.app.state.service).run(
+                query, location, sources, parsed_limit, campaign_id
+            )
+            if result["state"] == "failed":
+                raise ValueError("All selected sources failed.")
     except (ValueError, ApifyCredentialError, ApifyNotFoundError,
             ApifyTransientError, ApifyMalformedResponseError) as exc:
         status_code = 400 if isinstance(exc, ValueError) else 502
@@ -147,22 +252,24 @@ def run_search(
             context={
                 "campaigns": campaigns,
                 "form": form,
-                "source": source,
+                "source": sources,
+                "sources": _source_capabilities(request),
                 "error": _safe_error_summary(exc),
             },
             status_code=status_code,
         )
-    if result.status.value in {"failed", "aborted", "timed_out"}:
+    if result["state"] == "partial":
+        completed = ", ".join(result["completed_steps"]) or "هیچ منبعی"
         return _templates(request).TemplateResponse(
             request=request,
             name="search.html",
             context={
                 "campaigns": campaigns,
                 "form": form,
-                "source": source,
-                "error": "Search did not complete successfully.",
+                "sources": _source_capabilities(request),
+                "notice": f"نتایج ناقص ذخیره شد؛ منابع موفق: {completed}",
             },
-            status_code=502,
+            status_code=207,
         )
     return RedirectResponse(
         f"/campaigns/{campaign_id}?message=Search+completed", status_code=303

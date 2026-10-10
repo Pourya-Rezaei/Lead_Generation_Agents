@@ -10,7 +10,7 @@ from .errors import (
     CampaignNotFoundError,
     SearchAttemptPersistenceError,
 )
-from .registry import ConnectorRegistry
+from .registry import ConnectorRegistry, SourceCapability
 from .results import SearchResult
 from .storage import LeadStore
 
@@ -26,11 +26,10 @@ def _safe_error_summary(error: Exception) -> str:
         return "Apify returned an invalid response."
     if isinstance(error, ApifyError):
         return "Apify request failed."
-    if (
-        isinstance(error, ValueError)
-        and str(error) == "APIFY_API_TOKEN is required for places"
-    ):
+    if isinstance(error, ValueError) and str(error) == "APIFY_API_TOKEN is required for places":
         return "APIFY_API_TOKEN is required for places."
+    if isinstance(error, ValueError) and str(error).startswith("APIFY_API_TOKEN is required for "):
+        return "APIFY_API_TOKEN is required for the selected source."
     return "Search failed with an unexpected error."
 
 
@@ -44,6 +43,15 @@ class SearchLeadsService:
         self.settings = settings
         self.store = store or LeadStore(settings.database_path)
         self.registry = registry or ConnectorRegistry()
+        self.last_provider_run_id: str | None = None
+
+    def source_capabilities(self) -> tuple[SourceCapability, ...]:
+        """Describe selectable sources without constructing or running connectors."""
+        return self.registry.capabilities()
+
+    def select_sources(self, sources: list[str] | tuple[str, ...]) -> tuple[SourceCapability, ...]:
+        """Validate a multi-source selection before any Actor can be activated."""
+        return self.registry.select_sources(sources)
 
     def search(
         self,
@@ -52,6 +60,7 @@ class SearchLeadsService:
         source: str = "places",
         limit: int = 20,
         campaign_id: str | None = None,
+        provider_run_id: str | None = None,
     ) -> SearchResult:
         if not query.strip() or not location.strip():
             raise ValueError("query and location must not be empty")
@@ -68,10 +77,20 @@ class SearchLeadsService:
         started_at = datetime.now(UTC)
         connector = None
         try:
-            if source == "places" and not self.settings.apify_api_token:
-                raise ValueError("APIFY_API_TOKEN is required for places")
+            if source in {"places", "google_search"} and not self.settings.apify_api_token:
+                raise ValueError(f"APIFY_API_TOKEN is required for {source}")
             connector = self.registry.create(source, self.settings)
-            result = connector.search(query, location, limit)
+            resume = getattr(connector, "search_existing_run", None)
+            if provider_run_id and callable(resume):
+                result = resume(provider_run_id, query, limit)
+            else:
+                result = connector.search(query, location, limit)
+            metadata = getattr(connector, "failure_metadata", {})
+            self.last_provider_run_id = (
+                metadata.get("provider_run_id")
+                if isinstance(metadata, dict)
+                else None
+            )
         except Exception as exc:
             try:
                 self.store.record_failed_search(

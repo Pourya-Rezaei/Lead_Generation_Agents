@@ -40,7 +40,7 @@ grep -RInE 'APIFY_API_TOKEN|GOOGLE_API_KEY' --exclude-dir=.venv --exclude-dir=.g
 
 - منبع رسمی فعال فعلی فقط `places` و Actor مربوط به `compass~crawler-google-places` است.
 - Apify Places در اجرای واقعی با limit پایین تست شده است؛ تست‌های پروژه به‌صورت mock و بدون token واقعی اجرا می‌شوند.
-- آخرین اعتبارسنجی کامل: `79 passed` با `pytest -q`.
+- آخرین اعتبارسنجی کامل در branch فاز A: `93 passed` با `pytest -q`؛ baseline main قبل از فاز A برابر 89 بود.
 - Campaign پیش‌فرض `general` است و جست‌وجو می‌تواند با `--campaign ID` به Campaign مشخص متصل شود.
 - `campaign create/list/show` و export محدودشده با `--campaign` فعال هستند.
 - خطاهای credential، timeout/network، پاسخ malformed و failure result به‌صورت Run ناموفق ثبت می‌شوند؛ Lead و raw برای failure ذخیره نمی‌شوند.

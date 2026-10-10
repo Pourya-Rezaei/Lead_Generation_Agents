@@ -63,6 +63,18 @@ def test_run_actor_uses_header_and_returns_run_data():
     assert kwargs["json"] == {"q": "cafe"}
 
 
+def test_wait_for_run_polls_existing_run_until_terminal():
+    transport = ScriptedClient([
+        response(200, {"data": {"id": "run-1", "status": "RUNNING"}}),
+        response(200, {"data": {"id": "run-1", "status": "SUCCEEDED", "defaultDatasetId": "ds-1"}}),
+    ])
+
+    run = make_client(transport).wait_for_run("run-1", timeout=5, poll_interval=0.01)
+
+    assert run["status"] == "SUCCEEDED"
+    assert [request[0] for request in transport.requests] == ["GET", "GET"]
+
+
 def test_run_actor_allows_status_without_dataset_id():
     transport = ScriptedClient([
         response(200, {"data": {"id": "run-1", "status": "RUNNING"}})
@@ -71,6 +83,40 @@ def test_run_actor_allows_status_without_dataset_id():
     run = make_client(transport).run_actor("actor~name", {})
 
     assert run == {"id": "run-1", "status": "RUNNING"}
+
+
+def test_lifecycle_can_start_poll_and_abort_without_exposing_token():
+    transport = ScriptedClient([
+        response(200, {"data": {"id": "run-1", "status": "RUNNING"}}),
+        response(200, {"data": {"id": "run-1", "status": "SUCCEEDED", "defaultDatasetId": "ds-1"}}),
+        response(200, {"data": {"id": "run-1", "status": "ABORTED"}}),
+    ])
+    client = make_client(transport)
+    assert client.start_actor("actor~name", {}, wait_for_finish=0)["status"] == "RUNNING"
+    assert client.get_run("run-1")["status"] == "SUCCEEDED"
+    assert client.abort_run("run-1")["status"] == "ABORTED"
+    assert all("top-secret-token" not in request[1] for request in transport.requests)
+
+
+def test_iter_dataset_items_yields_pages_until_short_page():
+    transport = ScriptedClient([
+        response(200, [{"id": 1}, {"id": 2}]),
+        response(200, [{"id": 3}]),
+    ])
+
+    pages = list(make_client(transport).iter_dataset_items("ds-1", page_size=2))
+
+    assert pages == [[{"id": 1}, {"id": 2}], [{"id": 3}]]
+    assert [request[2]["params"]["offset"] for request in transport.requests] == [0, 2]
+
+
+def test_dataset_items_page_sends_offset_and_limit():
+    transport = ScriptedClient([response(200, [{"name": "cafe"}])])
+
+    items = make_client(transport).dataset_items_page("ds-1", offset=10, limit=5)
+
+    assert items == [{"name": "cafe"}]
+    assert transport.requests[0][2]["params"] == {"clean": "true", "offset": 10, "limit": 5}
 
 
 def test_dataset_items_retrieves_clean_items():

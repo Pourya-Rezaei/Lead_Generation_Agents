@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import sqlite3
+import uuid
 from collections.abc import Callable
 
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 10
 
 
 def _table_columns(connection: sqlite3.Connection, table: str) -> set[str]:
@@ -106,7 +107,106 @@ def _migration_2(connection: sqlite3.Connection) -> None:
     )
 
 
-MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (_migration_1, _migration_2)
+def _migration_3(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS leads (dedup_key TEXT PRIMARY KEY, payload TEXT NOT NULL)"
+    )
+    columns = _table_columns(connection, "leads")
+    if "lead_id" not in columns:
+        connection.execute("ALTER TABLE leads ADD COLUMN lead_id TEXT")
+    rows = connection.execute("SELECT rowid, lead_id FROM leads").fetchall()
+    for rowid, lead_id in rows:
+        if not lead_id:
+            connection.execute("UPDATE leads SET lead_id = ? WHERE rowid = ?", (str(uuid.uuid4()), rowid))
+    connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_leads_lead_id ON leads(lead_id)")
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS observations ("
+        "observation_id TEXT PRIMARY KEY, lead_id TEXT NOT NULL, source TEXT NOT NULL, "
+        "source_record_id TEXT, source_url TEXT, run_id TEXT, collected_at TEXT NOT NULL, "
+        "fields TEXT NOT NULL, mapper_version TEXT NOT NULL, "
+        "FOREIGN KEY (lead_id) REFERENCES leads(lead_id) ON DELETE CASCADE)"
+    )
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_observations_lead ON observations(lead_id)")
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_observations_source_record ON observations(source, source_record_id)")
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS field_evidence ("
+        "evidence_id TEXT PRIMARY KEY, lead_id TEXT NOT NULL, field TEXT NOT NULL, value TEXT, "
+        "source_url TEXT, observation_id TEXT, collected_at TEXT NOT NULL, evidence_kind TEXT NOT NULL, "
+        "confidence REAL, policy_version TEXT NOT NULL, "
+        "FOREIGN KEY (lead_id) REFERENCES leads(lead_id) ON DELETE CASCADE, "
+        "FOREIGN KEY (observation_id) REFERENCES observations(observation_id) ON DELETE SET NULL)"
+    )
+
+
+def _migration_4(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS lead_merge_audit ("
+        "merge_id TEXT PRIMARY KEY, source_lead_id TEXT NOT NULL, target_lead_id TEXT NOT NULL, "
+        "reason TEXT NOT NULL, confidence REAL NOT NULL, created_at TEXT NOT NULL, "
+        "source_key TEXT NOT NULL, target_key TEXT NOT NULL, source_payload TEXT NOT NULL, "
+        "undone_at TEXT, status TEXT NOT NULL DEFAULT 'active')"
+    )
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_merge_source ON lead_merge_audit(source_lead_id)")
+
+
+def _migration_5(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS budget_reservations ("
+        "reservation_id TEXT PRIMARY KEY, job_id TEXT NOT NULL, step_id TEXT NOT NULL, "
+        "amount_minor INTEGER NOT NULL CHECK (amount_minor >= 0), currency TEXT NOT NULL, "
+        "actual_minor INTEGER, state TEXT NOT NULL CHECK (state IN ('reserved','reconciled','released','unknown')), "
+        "pricing_version TEXT NOT NULL, created_at TEXT NOT NULL, reconciled_at TEXT, "
+        "UNIQUE(job_id, step_id))"
+    )
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_budget_state ON budget_reservations(state)")
+
+
+def _migration_6(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS jobs ("
+        "job_id TEXT PRIMARY KEY, idempotency_key TEXT NOT NULL UNIQUE, request TEXT NOT NULL, "
+        "state TEXT NOT NULL CHECK (state IN ('queued','running','cancel_requested','succeeded','partial','failed','cancelled','needs_review')), "
+        "progress TEXT NOT NULL, error_code TEXT, worker_id TEXT, lease_until TEXT, fencing_token INTEGER NOT NULL DEFAULT 0, "
+        "created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"
+    )
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_jobs_state_created ON jobs(state, created_at)")
+
+
+def _migration_7(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS execution_cache ("
+        "cache_key TEXT PRIMARY KEY, result TEXT NOT NULL, collected_at TEXT NOT NULL, expires_at TEXT NOT NULL, mapper_version TEXT NOT NULL)"
+    )
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_cache_expiry ON execution_cache(expires_at)")
+
+
+def _migration_8(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS profile_candidates ("
+        "candidate_id TEXT PRIMARY KEY, lead_id TEXT NOT NULL, platform TEXT NOT NULL, url TEXT NOT NULL, "
+        "status TEXT NOT NULL CHECK (status IN ('unverified','probable','confirmed','rejected')), confidence REAL NOT NULL, "
+        "evidence TEXT NOT NULL, review_reason TEXT, reviewed_at TEXT, created_at TEXT NOT NULL, "
+        "UNIQUE(lead_id, platform, url), FOREIGN KEY (lead_id) REFERENCES leads(lead_id) ON DELETE CASCADE)"
+    )
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_profile_lead_status ON profile_candidates(lead_id, status)")
+
+
+def _migration_9(connection: sqlite3.Connection) -> None:
+    connection.execute("ALTER TABLE jobs ADD COLUMN provider_run_id TEXT")
+    connection.execute("ALTER TABLE jobs ADD COLUMN provider_state TEXT")
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_jobs_provider_run ON jobs(provider_run_id)")
+
+
+def _migration_10(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS profile_review_audit ("
+        "audit_id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, old_status TEXT, new_status TEXT NOT NULL, "
+        "reason TEXT NOT NULL, reviewed_at TEXT NOT NULL, FOREIGN KEY(candidate_id) REFERENCES profile_candidates(candidate_id) ON DELETE CASCADE)"
+    )
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_profile_review_candidate ON profile_review_audit(candidate_id, reviewed_at)")
+
+
+MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (_migration_1, _migration_2, _migration_3, _migration_4, _migration_5, _migration_6, _migration_7, _migration_8, _migration_9, _migration_10)
 
 
 def migrate(connection: sqlite3.Connection) -> int:

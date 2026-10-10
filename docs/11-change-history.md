@@ -1,6 +1,22 @@
 # تاریخچه تغییرات و وضعیت فعلی پروژه
 
+## تکمیل فاز E: دروازه قرارداد Actorهای اجتماعی (2026-10-10)
+
+- metadata صفحات رسمی Apify Store و خلاصه قیمت Instagram، TikTok و YouTube ثبت شد.
+- وضعیت schema ورودی هر سه Actor صریحاً `unverified` باقی ماند؛ هیچ Actor پولی فعال نشد.
+- مدل `ContractGateReport` اضافه شد و فعال‌سازی را به عبور هم‌زمان schema، privacy و pricing گره می‌زند.
+- تست‌های آفلاین تضمین می‌کنند شکست هر دروازه وضعیت را blocked نگه می‌دارد.
+- هیچ اجرای زنده یا token جدیدی استفاده نشد.
+
+
 این سند خلاصه‌ای از کارهای انجام‌شده در مرحله تثبیت پروژه را ثبت می‌کند تا تصمیم‌های فنی، تغییرات معماری و معیارهای اعتبارسنجی برای ایجنت یا توسعه‌دهنده بعدی قابل پیگیری باشد.
+
+## قابلیت انتخاب چندمنبع (2026-10-09)
+
+- descriptorهای capability برای منابع Places، Google Search و منابع اجتماعی/وب اضافه شد.
+- API افزایشی `source_capabilities()` و `select_sources()` بدون تغییر مسیر قدیمی `search(source=...)` اضافه شد.
+- انتخاب چندمنبع اتمیک اعتبارسنجی می‌شود؛ منابع غیرفعال پیش از ساخت Connector خطای امن می‌دهند و Actor اجتماعی فعال نمی‌شود.
+- تست‌های selection آفلاین و بدون Actor پولی اضافه شد.
 
 ## دامنه کار انجام‌شده
 
@@ -81,6 +97,16 @@ Web smoke routes   -> /, /campaigns, /search و /static/styles.css موفق
 
 هیچ اجرای زنده‌ای علیه Apify در این مرحله انجام نشد.
 
+## فاز A: هویت پایدار و provenance
+
+- schema به نسخهٔ ۳ ارتقا یافت و برای Leadها `lead_id` پایدار اضافه شد.
+- جدول‌های `observations` و `field_evidence` برای ثبت منبع، زمان، source record و evidence ایجاد شدند.
+- upsert با source/source_id ثابت، هویت Lead را هنگام تغییر فیلدهای mutable حفظ می‌کند.
+- normalization canonical و matching محافظه‌کارانه برای شعبه‌ها و شواهد ضعیف اضافه شد.
+- migration روی دیتابیس تازه و legacy idempotent و transaction-safe است.
+- baseline تست از 89 به `93 passed` رسید.
+- `campaign_leads` هنوز برای سازگاری از dedup key استفاده می‌کند؛ انتقال کامل به lead_id در migration جداگانه باقی مانده است.
+
 ## رابط وب فارسی و RTL
 
 - FastAPI، Jinja2 و `python-multipart` به وابستگی‌های runtime اضافه شدند.
@@ -102,6 +128,12 @@ Web smoke routes   -> /, /campaigns, /search و /static/styles.css موفق
 - افزودن CI پس از اتصال repository به remote.
 - تعیین سیاست retention مطابق نیاز واقعی کسب‌وکار و قوانین محل اجرا.
 - ایجاد migration جدید به‌صورت ترتیبی و بدون شکستن JSON/CSV پیش‌فرض.
+
+## فاز A: مشاهدات پلتفرمی مستقل
+
+- قرارداد backward-compatible `PlatformObservation` و `PlatformSearchResult` برای نتایج مستقل اجتماعی اضافه شد؛ فیلدهای مشترک با metadata و contact links مخصوص پلتفرم تفکیک شده‌اند.
+- normalization و allowlist قطعی برای URL پروفایل و لینک‌های تماس حرفه‌ای عمومی Instagram، YouTube و TikTok اضافه شد.
+- Connectorهای اجتماعی و Actorهای پولی همچنان disabled-by-default هستند و در این تغییر هیچ اجرای شبکه‌ای فعال نشده است.
 
 ## وضعیت فعلی پس از Campaign و ثبت خطا
 

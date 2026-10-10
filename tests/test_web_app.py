@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from src.errors import ApifyCredentialError
 from src.results import RunStatus, SearchResult
+from src.social_service import SocialSearchService
 
 from src.config import Settings
 from src.storage import LeadStore
@@ -48,6 +49,16 @@ def test_create_app_registers_web_routes(tmp_path):
     assert "/" in paths
     assert "/campaigns" in paths
     assert "/search" in paths
+
+
+def test_search_form_renders_source_selection(client):
+    response = client.get("/search")
+    assert response.status_code == 200
+    assert "Google Places" in response.text
+    assert "Google Search" in response.text
+    assert "Instagram" in response.text
+    assert "فعلاً غیرفعال" in response.text
+    assert 'value="places"' in response.text
 
 
 def test_campaign_create_and_detail_render(client):
@@ -100,6 +111,34 @@ def test_search_route_does_not_leak_provider_error(fake_service):
     assert response.status_code == 502
     assert "token-secret" not in response.text
     assert "Authorization" not in response.text
+
+
+def test_orchestrated_search_requires_enabled_sources(tmp_path):
+    database = str(tmp_path / "orchestrated.db")
+    app = create_app(Settings(database_path=database))
+    response = TestClient(app).post(
+        "/api/orchestrated-searches",
+        json={"sources": ["instagram"], "idempotency_key": "phase-f-1"},
+    )
+    assert response.status_code == 409
+
+
+def test_social_api_rejects_disabled_source_without_executor_call(tmp_path):
+    database = str(tmp_path / "social.db")
+    store = LeadStore(database)
+    executor = Mock()
+    app = create_app(Settings(database_path=database), store=store, social_service=SocialSearchService(executor=executor))
+    response = TestClient(app).post("/api/social-searches", json={"sources": ["instagram"], "query": "cafe"})
+    assert response.status_code == 409
+    assert "disabled" in response.json()["detail"]
+    executor.assert_not_called()
+
+
+def test_social_api_validates_explicit_https_profiles(tmp_path):
+    database = str(tmp_path / "social-valid.db")
+    app = create_app(Settings(database_path=database), social_service=SocialSearchService())
+    response = TestClient(app).post("/api/social-searches", json={"sources": ["instagram"], "profile_urls": ["http://instagram.com/cafe"]})
+    assert response.status_code == 422
 
 
 def test_search_route_rejects_invalid_source(fake_service):

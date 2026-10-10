@@ -5,6 +5,7 @@ from fastapi.templating import Jinja2Templates
 from ..config import Settings
 from ..service import SearchLeadsService
 from ..storage import LeadStore
+from ..social_service import SocialSearchService
 from .routes import router
 
 
@@ -12,6 +13,7 @@ def create_app(
     settings: Settings | None = None,
     store: LeadStore | None = None,
     service: SearchLeadsService | None = None,
+    social_service: SocialSearchService | None = None,
 ) -> FastAPI:
     resolved_settings = settings or Settings()
     resolved_store = store or LeadStore(resolved_settings.database_path)
@@ -23,6 +25,7 @@ def create_app(
     app.state.settings = resolved_settings
     app.state.store = resolved_store
     app.state.service = resolved_service
+    app.state.social_service = social_service or SocialSearchService()
     app.state.templates = Jinja2Templates(directory="templates")
     app.include_router(router)
     return app

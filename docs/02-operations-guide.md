@@ -8,6 +8,10 @@
 4. خروجی را در `exports/` ذخیره کنید.
 5. SQLite و خروجی‌ها را backup کنید.
 
+## صف اجرای محلی
+
+در فاز B، جدول `jobs` primitive صف محلی را فراهم می‌کند: ارسال تکراری با `idempotency_key` همان Job را برمی‌گرداند، Jobهای queued قابل claim توسط یک worker هستند و lease/fencing برای recovery اولیه ثبت می‌شود. handler مربوط به Places اکنون request را به `SearchLeadsService` موجود متصل می‌کند؛ اگر request شامل `estimated_cost` و `max_cost` باشد، worker پیش از handler رزرو اتمیک می‌گیرد و پس از اجرا هزینه را محافظه‌کارانه `unknown` نگه می‌دارد تا provider reconciliation انجام شود. اجرای unattended کامل همچنان به daemon worker و recovery provider-level نیاز دارد.
+
 ## اجرای پنل وب محلی
 
 ```bash

@@ -22,6 +22,8 @@ compass~crawler-google-places
 
 ## API flow
 
+Client اکنون lifecycle را به عملیات مستقل تقسیم می‌کند: `start_actor`، `get_run`، `dataset_items` و `abort_run`. wrapper قدیمی `run_actor` برای سازگاری باقی مانده و از همان مسیر start استفاده می‌کند.
+
 1. `POST /v2/acts/compass~crawler-google-places/runs`
 2. ارسال Bearer token در Header
 3. انتظار برای پایان run با `waitForFinish=60`
@@ -37,9 +39,63 @@ compass~crawler-google-places
 
 ثبت failure به دسترس بودن دیتابیس وابسته است. اگر خود دیتابیس در دسترس نباشد یا فرایند ناگهانی متوقف شود، ثبت همان خطا تضمین‌شدنی نیست؛ در این حالت خطای ثبت نیز آشکار گزارش می‌شود و به موفقیت تبدیل نمی‌شود.
 
+## Google Search (فاز C اولیه)
+
+Adapter `google_search` با Actor `apify~google-search-scraper` اضافه شده است. نتیجهٔ Google Search فقط به‌عنوان candidate عمومی با title، URL و description allowlist می‌شود؛ snippet یا شباهت نام، مالکیت یا اطلاعات تماس قطعی محسوب نمی‌شود. اجرای واقعی تا بررسی schema/قیمت Actor و smoke کنترل‌شده باید با limit پایین انجام شود.
+
 ## وضعیت پیاده‌سازی فاز ۲
 
 اجرای واقعی با query `دندانپزشکی`، location `تهران` و limit برابر ۵ با موفقیت انجام شد. پنج لید در SQLite ذخیره شد و exportهای JSON و CSV در `exports/phase2/` ساخته شدند. تست‌های خودکار نیز با نتیجه `4 passed` موفق هستند.
+
+## Enrichment وب در فاز C
+
+نتایج Google Search در enrichment فقط به Lead مشخص‌شده با `lead_id` attach می‌شوند و با discovery مستقل کسب‌وکار مخلوط نمی‌شوند. query به‌صورت deterministic از نام کسب‌وکار و شهر ساخته می‌شود. فقط URLهای HTTPS با title و نشانهٔ شهر پذیرفته می‌شوند؛ نتیجهٔ بدون تطبیق شهر یا رکورد malformed حذف و شمارش می‌شود. تطبیق دامنهٔ رسمی موجود، candidate را فقط به `probable` ارتقا می‌دهد؛ directory و snippet هرگز وب‌سایت رسمی یا مالکیت را تأیید نمی‌کنند. crawl مستقیم سایت و email حدسی در این فاز انجام نمی‌شود.
+
+## تطبیق و review پروفایل کسب‌وکار
+
+Candidateهای پروفایل فقط به کسب‌وکار مشخص با `lead_id` وصل می‌شوند. شباهت نام به‌تنهایی هرگز `confirmed` نیست؛ `confirmed` به لینک first-party و شواهد سازگار نیاز دارد. بدون لینک first-party، شواهد حرفه‌ای سازگار حداکثر `probable` می‌شود و تعارض‌ها `unverified` باقی می‌مانند. فقط پلتفرم‌های allowlist و URLهای HTTPS ذخیره می‌شوند و رابطهٔ ثبت‌شده «پروفایل کسب‌وکار» است، نه مالک یا شخص. هر review با وضعیت قبلی، وضعیت جدید، دلیل و زمان در `profile_review_audit` ثبت می‌شود.
+
+## Capability descriptor و انتخاب منبع
+
+`ConnectorRegistry.capabilities()` و `SearchLeadsService.source_capabilities()` یک descriptor پایدار برای هر منبع برمی‌گردانند: نام، پلتفرم، Actor، وضعیت فعال بودن و توضیح. برای انتخاب یک یا چند منبع از `select_sources([...])` استفاده کنید؛ این متد همهٔ نام‌ها را ابتدا اعتبارسنجی می‌کند و تا موفقیت کامل هیچ Connector یا Actorای را فعال نمی‌کند. انتخاب منبع غیرفعال (از جمله social) با `DisabledSourceError` و پیام امن برمی‌گردد. خروجی هر Connector همچنان `SearchResult.source` اختصاصی خود را حفظ می‌کند و نتایج پلتفرم‌ها با هم مخلوط نمی‌شوند.
+
+این API به‌صورت additive اضافه شده و مسیر قدیمی `search(..., source="places")` بدون تغییر کار می‌کند. descriptor فقط metadata محلی است و هیچ تماس پولی با Apify ایجاد نمی‌کند.
+
+### Social Actor contract gates (Phase E)
+
+Official Apify Store references have been recorded for pricing only; they do not authorize execution:
+
+| Platform | Actor | Official page | Published price | Input schema |
+|---|---|---|---|---|
+| Instagram | `apify~instagram-scraper` | https://apify.com/apify/instagram-scraper | $1.50 / 1,000 results | **Unverified** |
+| TikTok | `clockworks~tiktok-scraper` | https://apify.com/clockworks/tiktok-scraper | $1.70 / 1,000 results | **Unverified** |
+| YouTube | `streamers~youtube-scraper` | https://apify.com/streamers/youtube-scraper | $2.40 / 1,000 videos | **Unverified** |
+
+`ContractGateReport` requires schema, privacy, and pricing gates to pass. Since the exact input schemas have not been confirmed against the Actor documentation, all three social Actors remain disabled and no paid run is possible. Prices are summaries from the official pages and may change; they are not a budget authorization. Privacy gates exclude person, reviewer, commenter, audience, and viewer data.
+
+### Social Web API (Phase E)
+
+مسیر `POST /api/social-searches` درخواست عمومی اجتماعی را با مدل `SocialSearchRequest` می‌پذیرد: یا `query`/`location` یا `profile_urls` (نه هر دو) و فقط URLهای HTTPS. پیش از هر اجرای احتمالی، نام sourceها از capability registry انتخاب می‌شود. Instagram، TikTok و YouTube عمداً disabled هستند؛ بنابراین endpoint با خطای 409 امن برمی‌گردد و هیچ Actor یا تماس شبکه‌ای ایجاد نمی‌کند. این مسیر فقط برای قرارداد و اعتبارسنجی آماده است و token یا دادهٔ شخصی را نمی‌پذیرد.
+
+## منابع اجتماعی: قرارداد فاز E، اجرا غیرفعال
+
+لایهٔ contract-gated برای Instagram، TikTok و YouTube در `src/connectors/social_profiles.py` آماده است. هر پلتفرم مدل ورودی مستقل (`InstagramProfileInput`، `YouTubeProfileInput` و `TikTokProfileInput`) دارد؛ مدل‌ها فقط URL پروفایل HTTPS، query و location عمومی را می‌پذیرند و فیلدهای اضافی را رد می‌کنند. Connectorها عمداً `enabled=False` هستند و هیچ Actor پولی را فراخوانی نمی‌کنند.
+
+Mapping فقط URL عمومی allowlist‌شده، عنوان/handle، bio حرفه‌ای، location، لینک رسمی و metadata محدود پلتفرم (مانند followers/subscribers/videoCount) را نگه می‌دارد. email، owner، reviewer، commenter، comments، audience و viewer data هرگز به خروجی وارد نمی‌شوند. `map_public_profile_safe` به‌جای exception یا دادهٔ خام، کدهای پایدار `malformed_record` و `private_profile` می‌دهد. فعال‌سازی آینده نیازمند تأیید قرارداد Actor، schema/pricing و privacy خواهد بود.
+
+### آداپتورهای سه Actor اجتماعی
+
+برای `apify~instagram-scraper`، `clockworks~tiktok-scraper` و
+`streamers~youtube-scraper` آداپتورهای contract-gated در
+`src/connectors/social_profiles.py` وجود دارند. هر آداپتور request preview
+فیلترشده (فقط `profile_url` و در صورت وجود `query`/`location`) و allowlist خروجی
+عمومی دارد، اما `enabled=False`، `contract_status=unverified` و
+`pricing_status=not_verified` باقی می‌ماند. این وضعیت عمداً بر اساس نبود تأیید
+کافی هم‌زمانِ schema عمومی، هزینه و privacy است؛ بنابراین preview قابل اجرا
+نیست و هیچ تماس پولی انجام نمی‌شود. وضعیت‌های provider به کدهای پایدار و امن
+تبدیل می‌شوند. فیلدهای email، owner، reviewer، commenter/comments، audience و
+viewer همیشه خارج از قرارداد خروجی هستند. فعال‌سازی فقط پس از تأیید مستند
+schema، قیمت و مجوز privacy مجاز است.
 
 ## خطاهای مهم
 
@@ -53,4 +109,4 @@ compass~crawler-google-places
 
 ## هزینه و محدودیت
 
-هزینه، سرعت و ظرفیت به تنظیمات Actor، تعداد نتایج و وضعیت حساب Apify بستگی دارد. قبل از اجرای وسیع، با limit کوچک آزمایش کنید.
+هزینه، سرعت و ظرفیت به تنظیمات Actor، تعداد نتایج و وضعیت حساب Apify بستگی دارد. قبل از اجرای وسیع، با limit کوچک آزمایش کنید. فاز execution اکنون primitive رزرو هزینهٔ اتمیک دارد: مبلغ با Decimal و واحد minor ذخیره می‌شود، currency و pricing version ثبت می‌شوند و هزینهٔ نامعلوم reservation را آزاد نمی‌کند؛ این سقف محلی ضمانت قیمت provider نیست.

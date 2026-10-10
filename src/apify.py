@@ -67,14 +67,57 @@ class ApifyClient:
         *,
         wait_for_finish: int = 60,
     ) -> dict[str, Any]:
-        """Start an Actor and return the validated run data object."""
+        """Start an Actor, wait when requested, and return validated run data."""
+        run = self.start_actor(actor, input_data, wait_for_finish=wait_for_finish)
+        return self._validate_run_data(run)
+
+    def start_actor(
+        self,
+        actor: str,
+        input_data: Mapping[str, Any],
+        *,
+        wait_for_finish: int = 0,
+    ) -> dict[str, Any]:
         url = f"{self.base_url}/acts/{quote(actor, safe='~')}/runs"
-        payload = self._request_json(
-            "post",
-            url,
-            params={"waitForFinish": str(wait_for_finish)},
-            json=dict(input_data),
-        )
+        payload = self._request_json("post", url, params={"waitForFinish": str(wait_for_finish)}, json=dict(input_data))
+        return self._validate_run_data(payload)
+
+    def get_run(self, run_id: str) -> dict[str, Any]:
+        if not run_id:
+            raise ValueError("run_id is required")
+        payload = self._request_json("get", f"{self.base_url}/actor-runs/{quote(run_id, safe='')}")
+        return self._validate_run_data(payload)
+
+    def abort_run(self, run_id: str) -> dict[str, Any]:
+        if not run_id:
+            raise ValueError("run_id is required")
+        payload = self._request_json("post", f"{self.base_url}/actor-runs/{quote(run_id, safe='')}/abort")
+        return self._validate_run_data(payload)
+
+    def wait_for_run(
+        self,
+        run_id: str,
+        *,
+        timeout: float = 300,
+        poll_interval: float = 2,
+    ) -> dict[str, Any]:
+        """Poll an existing run until it reaches a terminal status."""
+        if timeout <= 0 or poll_interval <= 0:
+            raise ValueError("timeout and poll_interval must be positive")
+        deadline = time.monotonic() + timeout
+        terminal = {"SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"}
+        while True:
+            run = self.get_run(run_id)
+            status = str(run.get("status", "")).upper()
+            if status in terminal:
+                return run
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ApifyTransientError("Apify run polling timed out")
+            self._sleep(min(poll_interval, remaining))
+
+    @staticmethod
+    def _validate_run_data(payload: Any) -> dict[str, Any]:
         if not isinstance(payload, dict):
             raise ApifyMalformedResponseError("Apify run response must be an object")
         data = payload.get("data", payload)
@@ -85,11 +128,48 @@ class ApifyClient:
         return data
 
     def dataset_items(self, dataset_id: str) -> list[dict[str, Any]]:
-        """Retrieve and validate clean items from an Apify dataset."""
+        """Retrieve and validate all clean items using the legacy request shape."""
         if not dataset_id:
             raise ValueError("dataset_id is required")
         url = f"{self.base_url}/datasets/{quote(dataset_id, safe='')}/items"
         payload = self._request_json("get", url, params={"clean": "true"})
+        if isinstance(payload, dict):
+            payload = payload.get("items")
+        if not isinstance(payload, list) or not all(isinstance(item, dict) for item in payload):
+            raise ApifyMalformedResponseError("Apify dataset response must be a list of objects")
+        return payload
+
+    def iter_dataset_items(
+        self, dataset_id: str, *, page_size: int = 1000, max_items: int | None = None
+    ) -> Any:
+        """Yield dataset pages in order for resumable processing."""
+        if page_size < 1 or (max_items is not None and max_items < 0):
+            raise ValueError("page_size must be positive and max_items non-negative")
+        offset = 0
+        yielded = 0
+        while max_items is None or yielded < max_items:
+            limit = page_size if max_items is None else min(page_size, max_items - yielded)
+            page = self.dataset_items_page(dataset_id, offset=offset, limit=limit)
+            if not page:
+                return
+            yield page
+            yielded += len(page)
+            offset += len(page)
+            if len(page) < limit:
+                return
+
+    def dataset_items_page(
+        self, dataset_id: str, *, offset: int = 0, limit: int = 1000
+    ) -> list[dict[str, Any]]:
+        """Retrieve one deterministic page of clean dataset items."""
+        if not dataset_id:
+            raise ValueError("dataset_id is required")
+        if offset < 0 or limit < 1:
+            raise ValueError("offset must be non-negative and limit must be positive")
+        url = f"{self.base_url}/datasets/{quote(dataset_id, safe='')}/items"
+        payload = self._request_json(
+            "get", url, params={"clean": "true", "offset": offset, "limit": limit}
+        )
         if isinstance(payload, dict):
             payload = payload.get("items")
         if not isinstance(payload, list) or not all(isinstance(item, dict) for item in payload):
