@@ -40,6 +40,10 @@ Social search contract
 
 `SocialSearchService` is a provider-independent, API/CLI-facing validation boundary. A request selects one or more declared social sources and uses either explicit HTTPS `profile_urls` or keyword mode (`query`, optionally `location`), never both. Source capability descriptors are checked before execution; Instagram, TikTok, YouTube, and web Actors remain disabled, so the service refuses before any network call. Platform-specific `PlatformSearchResult` observations are returned unchanged when a test or future enabled executor is supplied. No paid Actor is enabled by this phase.
 
+### Multi-source orchestration
+
+The web search form accepts one or more enabled discovery sources (`places` and `google_search`). Each source runs independently through `MultiSourceOrchestrator`; successful results are persisted even when another source fails, and a partial result is reported instead of discarding completed work. Disabled social sources remain visible in the UI but are rejected before execution. For asynchronous integrations, `POST /api/orchestrated-searches` validates sources and creates an idempotent Job; workers can execute its `sources` list with `multi_source_handler` and preserve `succeeded`, `partial`, or `failed` state.
+
 No secrets are included in this repository.
 
 ### Social Actor contract status (Phase E)

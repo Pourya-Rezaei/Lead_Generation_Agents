@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% block title %}جست‌وجوی جدید · نقشهٔ لید{% endblock %}
 {% block content %}
-<section class="hero"><span class="eyebrow">منبع فعال · Google Places</span><h1>پیدا کردن کسب‌وکارهای محلی</h1><p>حوزهٔ فعالیت و شهر را وارد کن تا اطلاعات عمومی کسب‌وکارها در کمپینت ذخیره شود.</p></section>
+<section class="hero"><span class="eyebrow">جست‌وجوی چندمنبعی</span><h1>پیدا کردن کسب‌وکارهای محلی</h1><p>حوزهٔ فعالیت و شهر را وارد کن تا منابع انتخاب‌شده به‌صورت مستقل اجرا شوند و نتیجهٔ ناقص هم حفظ شود.</p></section>
 <div class="panel">
+  {% if notice %}<div class="notice">{{ notice }}</div>{% endif %}
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
   <form method="post" action="/search" class="form-grid">
     <div class="field"><label for="query">حوزهٔ فعالیت یا شغل</label><input id="query" name="query" value="{{ form.query if form else '' }}" placeholder="مثلاً دندان‌پزشکی" required></div>
     <div class="field"><label for="location">شهر یا محدوده</label><input id="location" name="location" value="{{ form.location if form else '' }}" placeholder="مثلاً تهران" required></div>
@@ -14,7 +16,7 @@
       <div class="source-options">
         {% for item in sources %}
         <label class="source-option{% if not item.enabled %} is-disabled{% endif %}">
-          <input type="radio" name="source" value="{{ item.name }}" {% if item.name == 'places' %}checked{% endif %} {% if not item.enabled %}disabled{% endif %}>
+          <input type="checkbox" name="source" value="{{ item.name }}" {% if (form and item.name in form.sources) or (not form and item.name == 'places') %}checked{% endif %} {% if not item.enabled %}disabled{% endif %}>
           <span><strong>{{ {'places': 'Google Places', 'google_search': 'Google Search', 'instagram': 'Instagram', 'tiktok': 'TikTok', 'youtube': 'YouTube', 'web': 'Web'}[item.name] }}</strong><small>{{ item.description }}{% if not item.enabled %} · فعلاً غیرفعال{% endif %}</small></span>
         </label>
         {% endfor %}

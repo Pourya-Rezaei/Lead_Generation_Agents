@@ -23,6 +23,21 @@ def test_worker_records_handler_failure_without_raw_error():
         assert result.error_code == "RuntimeError"
 
 
+def test_worker_preserves_partial_multi_source_result():
+    with sqlite3.connect(":memory:") as db:
+        migrate(db)
+        JobRepository(db).submit({"sources": ["places", "google_search"]}, "key-partial")
+        result = JobWorker(db, "worker-1").run_once(
+            lambda request: {
+                "state": "partial",
+                "completed_steps": ["places"],
+                "sources": [{"source": "places", "state": "succeeded"}, {"source": "google_search", "state": "failed"}],
+            }
+        )
+        assert result and result.state == "partial"
+        assert result.progress["completed_steps"] == ["places"]
+
+
 def test_cancel_requested_job_is_not_reported_successful():
     with sqlite3.connect(":memory:") as db:
         migrate(db)

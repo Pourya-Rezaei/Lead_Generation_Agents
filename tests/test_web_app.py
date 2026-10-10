@@ -113,6 +113,16 @@ def test_search_route_does_not_leak_provider_error(fake_service):
     assert "Authorization" not in response.text
 
 
+def test_orchestrated_search_requires_enabled_sources(tmp_path):
+    database = str(tmp_path / "orchestrated.db")
+    app = create_app(Settings(database_path=database))
+    response = TestClient(app).post(
+        "/api/orchestrated-searches",
+        json={"sources": ["instagram"], "idempotency_key": "phase-f-1"},
+    )
+    assert response.status_code == 409
+
+
 def test_social_api_rejects_disabled_source_without_executor_call(tmp_path):
     database = str(tmp_path / "social.db")
     store = LeadStore(database)

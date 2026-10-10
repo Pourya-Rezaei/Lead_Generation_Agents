@@ -42,29 +42,40 @@ class JobWorker:
             if job.provider_run_id:
                 request["provider_run_id"] = job.provider_run_id
             result = handler(request)
+            result_state = "succeeded"
+            result_details: dict[str, Any] = {}
             if isinstance(result, dict):
                 steps = list(result.get("completed_steps", []))
+                result_state = str(result.get("state", "succeeded"))
+                result_details = {"sources": result.get("sources", [])}
                 provider_run_id = result.get("provider_run_id")
                 if isinstance(provider_run_id, str) and provider_run_id:
                     self.jobs.update_provider_run(job.job_id, self.worker_id, job.fencing_token, provider_run_id, "SUCCEEDED")
                 checkpoint = result.get("checkpoint")
                 if isinstance(checkpoint, dict):
-                    self.jobs.update_progress(
-                        job.job_id, self.worker_id, job.fencing_token, steps,
-                        checkpoint=checkpoint,
-                    )
+                    result_details["checkpoint"] = checkpoint
             else:
                 steps = list(result)
-            cache.put(job.request, {"completed_steps": steps})
+            self.jobs.update_progress(
+                job.job_id, self.worker_id, job.fencing_token, steps, **result_details
+            )
+            if result_state == "failed":
+                self.connection.execute("UPDATE jobs SET state = 'failed', error_code = ?, lease_until = NULL, updated_at = datetime('now') WHERE job_id = ? AND worker_id = ? AND fencing_token = ?", ("SourceExecutionFailed", job.job_id, self.worker_id, job.fencing_token))
+            elif result_state == "partial":
+                self.connection.execute("UPDATE jobs SET state = 'partial', lease_until = NULL, updated_at = datetime('now') WHERE job_id = ? AND worker_id = ? AND fencing_token = ?", (job.job_id, self.worker_id, job.fencing_token))
+            else:
+                cache.put(job.request, {"completed_steps": steps})
             current = self.jobs.get(job.job_id)
             if current is None:
                 return None
             if current.state == "cancel_requested":
                 self.connection.execute("UPDATE jobs SET state = 'cancelled', updated_at = datetime('now') WHERE job_id = ? AND worker_id = ? AND fencing_token = ?", (job.job_id, self.worker_id, job.fencing_token))
-            else:
-                self.connection.execute("UPDATE jobs SET state = 'succeeded', progress = ?, lease_until = NULL, updated_at = datetime('now') WHERE job_id = ? AND worker_id = ? AND fencing_token = ?", (__import__('json').dumps({"completed_steps": steps}), job.job_id, self.worker_id, job.fencing_token))
+            elif result_state == "succeeded":
+                self.connection.execute("UPDATE jobs SET state = 'succeeded', lease_until = NULL, updated_at = datetime('now') WHERE job_id = ? AND worker_id = ? AND fencing_token = ?", (job.job_id, self.worker_id, job.fencing_token))
                 if reservation_id:
                     BudgetRepository(self.connection).reconcile(reservation_id, None)
+            elif reservation_id:
+                BudgetRepository(self.connection).reconcile(reservation_id, None)
         except Exception as exc:
             self.connection.execute("UPDATE jobs SET state = 'failed', error_code = ?, lease_until = NULL, updated_at = datetime('now') WHERE job_id = ? AND worker_id = ? AND fencing_token = ?", (type(exc).__name__, job.job_id, self.worker_id, job.fencing_token))
             if reservation_id:

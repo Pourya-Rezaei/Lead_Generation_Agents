@@ -4,6 +4,7 @@ from collections.abc import Callable
 from typing import Any
 
 from ..service import SearchLeadsService
+from ..orchestration import MultiSourceOrchestrator
 
 
 def places_handler(service: SearchLeadsService) -> Callable[[dict[str, Any]], Any]:
@@ -27,4 +28,20 @@ def places_handler(service: SearchLeadsService) -> Callable[[dict[str, Any]], An
             return {"completed_steps": [source], "provider_run_id": provider_run_id}
         return [source]
 
+    return handle
+
+
+def multi_source_handler(service: SearchLeadsService) -> Callable[[dict[str, Any]], Any]:
+    """Build a worker handler that isolates each selected source."""
+    def handle(request: dict[str, Any]) -> dict[str, Any]:
+        sources = request.get("sources", [])
+        if not isinstance(sources, list) or not sources:
+            raise ValueError("sources must be a non-empty list")
+        return MultiSourceOrchestrator(service).run(
+            str(request.get("query", "")),
+            str(request.get("location", "")),
+            sources,
+            int(request.get("limit", 20)),
+            request.get("campaign_id"),
+        )
     return handle
