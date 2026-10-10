@@ -196,3 +196,9 @@ Web smoke routes   -> /, /campaigns, /search و /static/styles.css موفق
 - مرزهای privacy، allowlist raw، failure persistence و محدودیت‌های Web UI محلی صریح‌تر شدند.
 - این تغییر فقط مستنداتی است و قرارداد اجرایی یا schema را تغییر نمی‌دهد.
 - syntax نمودار برای سازگاری با rendererهای Mermaid ساده‌سازی شد: labelها quote شدند، شکست خط به `<br/>` تبدیل شد و brace/edge-labelهای حساس حذف شدند.
+
+## Production hardening (2026-10-10)
+
+- Recovery برای leaseهای منقضی‌شده و حفاظت fencing حفظ شد.
+- `JobWorker.stop()` برای shutdown هماهنگ اضافه شد.
+- endpointهای `/health/live` و `/health/ready` با خطاهای sanitized اضافه شدند.

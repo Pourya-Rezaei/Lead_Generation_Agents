@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pathlib import Path
+import sqlite3
 from tempfile import NamedTemporaryFile
 
 from ..errors import (
@@ -17,6 +18,21 @@ from ..connectors.social_profiles import SOCIAL_ACTOR_ADAPTERS
 from .schemas import CampaignForm
 
 router = APIRouter()
+
+
+@router.get("/health/live")
+def health_live():
+    return {"status": "ok"}
+
+
+@router.get("/health/ready")
+def health_ready(request: Request):
+    try:
+        with sqlite3.connect(request.app.state.settings.database_path) as connection:
+            connection.execute("SELECT 1").fetchone()
+    except sqlite3.Error:
+        raise HTTPException(status_code=503, detail={"code": "database_unavailable"})
+    return {"status": "ready", "database": True, "worker": True}
 
 
 @router.post("/api/social-searches/preview")

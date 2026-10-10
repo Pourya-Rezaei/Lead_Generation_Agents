@@ -65,6 +65,16 @@ class JobRepository:
         self.connection.execute("UPDATE jobs SET state = 'running', worker_id = ?, lease_until = ?, fencing_token = fencing_token + 1, updated_at = ? WHERE job_id = ? AND (state = 'queued' OR (state = 'running' AND lease_until < ?))", (worker_id, lease, now.isoformat(), job_id, expired))
         return self.get(job_id)
 
+    def recover_expired_leases(self, now: datetime | None = None) -> int:
+        """Return expired running jobs to the queue without changing their fencing token."""
+        current = now or datetime.now(UTC)
+        result = self.connection.execute(
+            "UPDATE jobs SET state = 'queued', worker_id = NULL, lease_until = NULL, updated_at = ? "
+            "WHERE state = 'running' AND lease_until IS NOT NULL AND lease_until < ?",
+            (current.isoformat(), current.isoformat()),
+        )
+        return result.rowcount
+
     def request_cancel(self, job_id: str) -> None:
         self.connection.execute("UPDATE jobs SET state = CASE WHEN state = 'queued' THEN 'cancelled' WHEN state = 'running' THEN 'cancel_requested' ELSE state END, updated_at = ? WHERE job_id = ?", (datetime.now(UTC).isoformat(), job_id))
 

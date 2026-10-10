@@ -52,3 +52,10 @@ SQLite database          -> test-phase2.db (48K)
 ## مدیریت secret
 
 در صورت افشای token، فوراً آن را در Apify revoke و token جدید ایجاد کنید. `.env` نباید commit شود.
+
+## Production hardening
+
+- `GET /health/live` is a content-free liveness check.
+- `GET /health/ready` verifies database connectivity and returns `503` with the stable code `database_unavailable` when readiness fails.
+- The worker recovers expired leases before claiming new work. Fencing tokens prevent stale workers from updating reclaimed jobs.
+- `JobWorker.stop()` provides cooperative shutdown and prevents new claims after the stop signal.

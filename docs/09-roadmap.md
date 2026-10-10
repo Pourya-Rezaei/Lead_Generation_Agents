@@ -45,6 +45,10 @@
   - `streamers/youtube-scraper`
 - اتصال هر profile فقط با evidence و سطح اطمینان به کسب‌وکار؛ match ضعیف باید `probable` بماند.
 
+## فاز پلتفرم اجرا — بخش اصلی تکمیل‌شده
+
+queue، اجرای async، cache، idempotency، history، monitoring، budget reservation و recovery اولیهٔ lease پیاده‌سازی شده‌اند. hardening بیشتر، authentication، CRM و scheduling در roadmap باقی می‌مانند.
+
 ## فاز پلتفرم اجرا
 
 - queue و اجرای async

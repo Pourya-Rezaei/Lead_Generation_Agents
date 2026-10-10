@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
 from collections.abc import Callable
 from decimal import Decimal
 
@@ -16,8 +17,19 @@ class JobWorker:
         self.connection = connection
         self.worker_id = worker_id
         self.jobs = JobRepository(connection)
+        self._stop_event = threading.Event()
+
+    def stop(self) -> None:
+        self._stop_event.set()
+
+    @property
+    def stopped(self) -> bool:
+        return self._stop_event.is_set()
 
     def run_once(self, handler: Callable[[dict[str, Any]], list[str]]) -> Job | None:
+        if self.stopped:
+            return None
+        self.jobs.recover_expired_leases()
         job = self.jobs.claim(self.worker_id)
         if job is None:
             return None
