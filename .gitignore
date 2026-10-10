@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+.envrc
 
 # Python environments and caches
 .venv/
@@ -10,6 +11,9 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
 
 # Build and packaging artifacts
 *.egg-info/
@@ -26,6 +30,7 @@ dist/
 *.sqlite
 *.sqlite3
 exports/
+*.log
 
 # IDE and OS files
 .vscode/
