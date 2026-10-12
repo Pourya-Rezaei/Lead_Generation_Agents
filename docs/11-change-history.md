@@ -1,12 +1,11 @@
 # تاریخچه تغییرات و وضعیت فعلی پروژه
 
-## همگام‌سازی نمودار معماری (2026-10-12)
+## تثبیت اجرای GitHub Actions (2026-10-12)
 
-- نمودارهای `04-architecture.md` با Registry و persistence فعلی همگام شدند: فقط Places و Instagram مستقل فعال‌اند و هر درخواست یک منبع دارد.
-- مسیرهای جداگانهٔ Campaign، پروفایل، تاریخچه و export اینستاگرام، Worker و جدول‌های منطقی در SQLite مشترک نمایش داده شدند؛ مسیرهای تاریخی Google Search و enrichment از نمودار اجرایی حذف شدند.
-- از labelهای quoted و `<br/>` برای سازگاری Mermaid استفاده شد. رفتار اجرایی و schema تغییر نکردند.
-- CBM موجود برای context بررسی شد: `ready`، ۱٬۳۸۹ node، ۵٬۳۸۴ edge و `parse_unusable: 0`؛ index در این تغییر refresh نشد.
-- اعتبارسنجی: `PYTHONPATH=. .venv/bin/pytest -q` با `217 passed` و یک هشدار deprecation موجود.
+- runner از `ubuntu-latest` به `ubuntu-24.04` pin شد تا مهاجرت Ubuntu 26 باعث تغییر ناگهانی محیط CI نشود.
+- `actions/checkout` و `actions/setup-python` به نسخه‌های Node 24 (`v5` و `v6`) ارتقا یافتند.
+- اجرای تست به `python -m pytest -q` تغییر کرد تا دقیقاً از interpreter نسخهٔ matrix استفاده شود.
+- اعتبارسنجی محلی: `217 passed, 1 warning`.
 
 ## به‌روزرسانی index حافظهٔ کد (2026-10-12)
 
@@ -14,7 +13,6 @@
 - وضعیت نهایی: `ready`؛ ۱٬۳۸۹ node و ۵٬۳۸۴ edge؛ `parse_unusable: 0`.
 - سه هشدار `parse_partial` در templateهای `templates/base.html`، `templates/job_detail.html` و `templates/search.html` ثبت شد؛ تحلیل این خطوط best-effort است.
 - `.env` همچنان طبق policy خارج از index باقی ماند.
-
 
 ## Independent Instagram campaigns (2026-10-12)
 
@@ -27,7 +25,6 @@ CLI examples: `instagram-campaign create "کافه‌ها" --campaign cafes`, `i
 SQLite migration **18** adds separate campaign/run/profile-observation tables without moving historical data. Run payloads and observations commit atomically; replayed successful run IDs are immutable and cannot switch campaigns. Aggregation prefers stable provider IDs, falls back to case-insensitive canonical usernames, and selects the latest valid observation by `(started_at, run_id)` descending. Renamed stable IDs stay one profile; distinct IDs sharing a reused username remain distinct. Failed/empty runs remain in history and never erase prior profiles. Instagram cache identity is campaign-specific and versioned independently from historical run storage.
 
 **Deployment:** stop the owned web server and worker together before migration; restart them with this code against the same database. Migration runs at initialization. The implementation/tests did not open or migrate the live database, restart running sessions, or call paid Actors. Do not roll back to a schema-17 binary after migrating.
-
 
 Validation: `.venv/bin/python -m pytest -q --basetemp=.test-campaign-work` → **226 passed**, one existing Starlette/httpx deprecation warning; module CLI help smoke and `git diff --check` passed. Focused coverage includes migration-17 upgrade/idempotence/no import, source separation, stable-ID/username aggregation, latest ordering and replay, failed/empty runs, transaction rollback, safe Unicode CSV/JSON, server-side selection, campaign pages/API, CLI and cache references. Existing uncommitted work was preserved; no commits or live database changes.
 
@@ -46,7 +43,6 @@ Instagram profiles persist in existing run metadata and allowlisted raw records,
 Provider run IDs are journaled before polling; resume uses the same known run. Unknown POST start outcomes require review, not blind retries. Standard input/output fields were checked against the public Actor README/input documentation (`https://apify.com/apify/instagram-search-scraper/input-schema`); no paid Actor was called. Live mode is unavailable. Offline mocked tests do not certify real-world search quality or current pricing; any paid smoke requires separate authorization.
 
 Earlier entries below are historical and preserved verbatim. No database rows were deleted or schema redesign performed. Existing unrelated worktree changes were retained.
-
 
 ## اصلاح خروجی مستقل پیج Instagram (2026-10-11)
 
@@ -70,7 +66,6 @@ Earlier entries below are historical and preserved verbatim. No database rows we
 - وضعیت نهایی: `ready`؛ ۱٬۳۵۶ node و ۵٬۴۶۹ edge؛ `parse_unusable: 0`.
 - هشدار `parse_partial` برای `templates/search.html` در خطوط ۱۱ و ۱۹ همچنان باقی است.
 - `.env`، دیتابیس‌ها و دادهٔ validation محلی طبق policy خارج از index باقی ماندند.
-
 
 ## اجرای CI خودکار روی push (2026-10-10)
 
@@ -128,7 +123,6 @@ Earlier entries below are historical and preserved verbatim. No database rows we
 - maintenance برای purge runهای قدیمی فقط وقتی مجاز است که raw lineage وابسته نداشته باشند؛ retention با dry-run انجام می‌شود.
 - تست‌های اجرای Job، بودجه، orchestration، recovery و connector اجرا شدند؛ هیچ Actor پولی در این تغییرات فراخوانی نشد.
 
-
 ## به‌روزرسانی index حافظهٔ کد (2026-10-10)
 
 - index پایدار CBM پس از اضافه‌شدن تغییرات جدید پروژه دوباره ساخته شد.
@@ -143,7 +137,6 @@ Earlier entries below are historical and preserved verbatim. No database rows we
 - مدل `ContractGateReport` اضافه شد و فعال‌سازی را به عبور هم‌زمان schema، privacy و pricing گره می‌زند.
 - تست‌های آفلاین تضمین می‌کنند شکست هر دروازه وضعیت را blocked نگه می‌دارد.
 - هیچ اجرای زنده یا token جدیدی استفاده نشد.
-
 
 این سند خلاصه‌ای از کارهای انجام‌شده در مرحله تثبیت پروژه را ثبت می‌کند تا تصمیم‌های فنی، تغییرات معماری و معیارهای اعتبارسنجی برای ایجنت یا توسعه‌دهنده بعدی قابل پیگیری باشد.
 
@@ -331,7 +324,6 @@ Web smoke routes   -> /, /campaigns, /search و /static/styles.css موفق
 - Recovery برای leaseهای منقضی‌شده و حفاظت fencing حفظ شد.
 - `JobWorker.stop()` برای shutdown هماهنگ اضافه شد.
 - endpointهای `/health/live` و `/health/ready` با خطاهای sanitized اضافه شدند.
-
 
 ## Explainable data quality (2026-10-10)
 
