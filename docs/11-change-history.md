@@ -1,5 +1,13 @@
 # تاریخچه تغییرات و وضعیت فعلی پروژه
 
+## همگام‌سازی نمودار معماری (2026-10-12)
+
+- نمودارهای `04-architecture.md` با Registry و persistence فعلی همگام شدند: فقط Places و Instagram مستقل فعال‌اند و هر درخواست یک منبع دارد.
+- مسیرهای جداگانهٔ Campaign، پروفایل، تاریخچه و export اینستاگرام، Worker و جدول‌های منطقی در SQLite مشترک نمایش داده شدند؛ مسیرهای تاریخی Google Search و enrichment از نمودار اجرایی حذف شدند.
+- از labelهای quoted و `<br/>` برای سازگاری Mermaid استفاده شد. رفتار اجرایی و schema تغییر نکردند.
+- CBM موجود برای context بررسی شد: `ready`، ۱٬۳۸۹ node، ۵٬۳۸۴ edge و `parse_unusable: 0`؛ index در این تغییر refresh نشد.
+- اعتبارسنجی: `PYTHONPATH=. .venv/bin/pytest -q` با `217 passed` و یک هشدار deprecation موجود.
+
 ## به‌روزرسانی index حافظهٔ کد (2026-10-12)
 
 - index محلی CBM با آخرین وضعیت پروژه دوباره ساخته شد.
