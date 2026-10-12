@@ -159,7 +159,24 @@ def _source_capabilities(request: Request):
 
 @router.get("/api/source-contracts")
 def api_source_contracts():
-    return [{"platform": "places", "actor": "compass~crawler-google-places", "status": "enabled"}, {"platform": "instagram", "actor": "apify~instagram-search-scraper", "status": "standard_only"}]
+    return [
+        {
+            "platform": "places",
+            "actor": "compass~crawler-google-places",
+            "status": "passed",
+            "pricing_summary": "فعال؛ قرارداد Places در حال استفاده است",
+            "failed_gates": [],
+            "docs_url": "https://apify.com/compass/crawler-google-places",
+        },
+        {
+            "platform": "instagram",
+            "actor": "apify~instagram-search-scraper",
+            "status": "passed",
+            "pricing_summary": "فعال در حالت جست‌وجوی استاندارد؛ live search خاموش است",
+            "failed_gates": [],
+            "docs_url": "https://apify.com/apify/instagram-search-scraper",
+        },
+    ]
 
 
 @router.get("/sources", response_class=HTMLResponse)

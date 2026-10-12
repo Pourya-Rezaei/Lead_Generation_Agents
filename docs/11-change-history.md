@@ -1,5 +1,13 @@
 # تاریخچه تغییرات و وضعیت فعلی پروژه
 
+## به‌روزرسانی index حافظهٔ کد (2026-10-12)
+
+- index محلی CBM با آخرین وضعیت پروژه دوباره ساخته شد.
+- وضعیت نهایی: `ready`؛ ۱٬۳۸۹ node و ۵٬۳۸۴ edge؛ `parse_unusable: 0`.
+- سه هشدار `parse_partial` در templateهای `templates/base.html`، `templates/job_detail.html` و `templates/search.html` ثبت شد؛ تحلیل این خطوط best-effort است.
+- `.env` همچنان طبق policy خارج از index باقی ماند.
+
+
 ## Independent Instagram campaigns (2026-10-12)
 
 Instagram now requires an explicitly selected **Instagram campaign**; Places campaigns and Lead exports are unchanged. Create/list campaigns at `/instagram-campaigns`, inspect profiles and run history at `/instagram-campaigns/{campaign_id}`, then select the campaign on `/search?source=instagram`. Empty lists link to campaign creation. Existing Instagram runs remain run-exportable but are **not automatically imported**.
