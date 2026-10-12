@@ -6,6 +6,7 @@ from ..domain import Lead, normalize, score
 from ..results import RunStatus, SearchResult, map_apify_status
 from ..retry import RetryPolicy
 from .base import Connector
+from ..source_contracts import GooglePlacesRecord, allowlist_record
 
 
 class ApifyPlacesConnector(Connector):
@@ -124,6 +125,7 @@ class ApifyPlacesConnector(Connector):
             leads=[self._lead(item, query) for item in items],
             warnings=warnings,
             raw_records=self.raw_items,
+            projections=[GooglePlacesRecord(name=item.get("title") or item.get("name") or "", address=item.get("address") or item.get("street") or "", phone=item.get("phone") or item.get("phoneNumber") or "", website=item.get("website"), category=item.get("categoryName") or query, rating=item.get("rating"), reviews_count=item.get("reviewsCount"), source_id=str(item.get("placeId") or item.get("cid")) if item.get("placeId") or item.get("cid") else None, source_url=item.get("url")) for item in items],
             started_at=started_at,
             finished_at=datetime.now(timezone.utc),
         )
@@ -186,7 +188,7 @@ class ApifyPlacesConnector(Connector):
 
     @classmethod
     def _allowlisted(cls, item: dict[str, Any]) -> dict[str, Any]:
-        return {key: value for key, value in item.items() if key in cls.raw_field_allowlist}
+        return allowlist_record("places", item)
 
     @classmethod
     def _lead(cls, item: dict[str, Any], query: str) -> Lead:

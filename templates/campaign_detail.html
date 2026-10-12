@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block title %}{{ campaign.name }} · نقشهٔ لید{% endblock %}
 {% block content %}
-<section class="hero"><a class="eyebrow" href="/campaigns">فهرست‌های من /</a><h1>{{ campaign.name }}</h1>{% if campaign.description %}<p>{{ campaign.description }}</p>{% endif %}<div class="actions"><a class="btn" href="/search">افزودن مشتری</a></div></section>
+<section class="hero"><a class="eyebrow" href="/google-places-campaigns">کمپین‌های Google Places /</a><h1>{{ campaign.name }}</h1>{% if campaign.description %}<p>{{ campaign.description }}</p>{% endif %}<div class="actions"><a class="btn" href="/search?source=places">افزودن مشتری از Google Places</a></div></section>
 <div class="grid">
   <div class="card metric"><span>لیدهای این کمپین</span><strong>{{ stats.lead_count }}</strong></div>
   <div class="card metric"><span>دفعات جست‌وجو</span><strong>{{ stats.run_count }}</strong></div>
-  <div class="card"><span class="muted">خروجی گرفتن</span><div class="actions" style="margin-top:12px"><a class="btn secondary" href="/campaigns/{{ campaign.campaign_id }}/export?format=csv">CSV</a><a class="btn secondary" href="/campaigns/{{ campaign.campaign_id }}/export?format=json">JSON</a></div></div>
+  <div class="card"><span class="muted">خروجی گرفتن</span><div class="actions" style="margin-top:12px"><a class="btn secondary" href="/google-places-campaigns/{{ campaign.campaign_id }}/export?format=csv">CSV</a><a class="btn secondary" href="/google-places-campaigns/{{ campaign.campaign_id }}/export?format=json">JSON</a></div></div>
 </div>
 <section class="section-head"><div><h2>لیدهای کمپین</h2><p>آخرین اطلاعات ذخیره‌شده برای این فضای کاری</p></div></section>
 <div class="panel table-wrap" role="region" aria-label="مشتری‌های فهرست" tabindex="0"><table class="table lead-table"><thead><tr><th>نام کسب‌وکار</th><th>آدرس</th><th>تلفن</th><th>وب‌سایت</th><th>امتیاز</th></tr></thead><tbody>

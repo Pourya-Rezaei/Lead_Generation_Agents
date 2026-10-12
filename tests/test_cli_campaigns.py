@@ -49,7 +49,7 @@ def test_campaign_show_reports_unknown_id(tmp_path):
 class FixedConnector:
     def search(self, query, location, limit):
         return SearchResult(
-            source="fake",
+            source="places",
             run_id=f"run-{location.lower()}",
             status=RunStatus.SUCCEEDED,
             leads=[Lead(name="North Cafe")],
@@ -61,16 +61,17 @@ class FixedConnector:
 
 class FixedRegistry:
     def validate_source(self, name):
-        assert name == "fake"
+        assert name == "places"
 
     def create(self, source, settings):
-        assert source == "fake"
+        assert source == "places"
         return FixedConnector()
 
 
 def test_search_cli_uses_default_or_selected_campaign(tmp_path, monkeypatch):
     import src.service as service_module
 
+    monkeypatch.setenv("APIFY_API_TOKEN", "dummy-token")
     database = str(tmp_path / "campaign.db")
     store = LeadStore(database)
     store.create_campaign("Selected", campaign_id="selected")
@@ -78,14 +79,14 @@ def test_search_cli_uses_default_or_selected_campaign(tmp_path, monkeypatch):
 
     default = runner.invoke(
         app,
-        ["search", "cafe", "North", "--source", "fake", "--db", database],
+        ["search", "cafe", "North", "--source", "places", "--db", database],
     )
     assert default.exit_code == 0
     assert "campaign 'general'" in default.stdout
 
     selected = runner.invoke(
         app,
-        ["search", "cafe", "South", "--source", "fake", "--campaign", "selected", "--db", database],
+        ["search", "cafe", "South", "--source", "places", "--campaign", "selected", "--db", database],
     )
     assert selected.exit_code == 0
     assert "campaign 'selected'" in selected.stdout

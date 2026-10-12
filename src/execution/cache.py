@@ -14,9 +14,14 @@ class ExecutionCache:
 
     @staticmethod
     def key(request: dict[str, Any]) -> str:
-        return hashlib.sha256(json.dumps(request, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        key_request = request
+        if request.get("source") == "instagram" or "instagram" in (request.get("sources") or []):
+            key_request = {**request, "instagram_actor": "apify~instagram-search-scraper", "instagram_contract": "instagram-campaign-v1", "liveSearch": False, "enhancement": False}
+        return hashlib.sha256(json.dumps(key_request, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
     def get(self, request: dict[str, Any], mapper_version: str = "1", policy_version: str = "1") -> dict[str, Any] | None:
+        if request.get("source", "places") not in {"places", "instagram"} or request.get("operation") not in {None, "search"} or request.get("sources"):
+            return None
         row = self.connection.execute(
             "SELECT result, expires_at, mapper_version, policy_version FROM execution_cache WHERE cache_key = ?",
             (self.key(request),),
@@ -38,7 +43,7 @@ class ExecutionCache:
         refs = result.get("persisted_refs")
         return (
             isinstance(refs, dict)
-            and bool(refs.get("lead_ids"))
+            and bool(refs.get("lead_ids") or refs.get("raw_record_refs") or (refs.get("source") == "instagram" and refs.get("run_id")))
             and isinstance(refs.get("observation_ids"), list)
             and isinstance(refs.get("raw_record_refs"), list)
         )

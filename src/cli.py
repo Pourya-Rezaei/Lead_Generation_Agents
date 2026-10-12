@@ -36,6 +36,7 @@ def worker_once(
 
         def handler(request: dict):
             return multi_handler(request) if request.get("sources") else single_handler(request)
+        setattr(handler, "preflight", getattr(single_handler, "preflight"))
         while True:
             processed = worker.run_once(handler)
             if processed is None:
@@ -52,7 +53,7 @@ def worker_once(
 def search(
     query: str,
     location: str,
-    source: str = typer.Option("places", help="places"),
+    source: str = typer.Option("places", help="Google Places; use instagram-search for Instagram"),
     limit: int = typer.Option(20, min=1),
     campaign: str | None = typer.Option(None, "--campaign", help="Campaign ID"),
     db: str | None = None,
@@ -60,6 +61,8 @@ def search(
     settings = Settings(database_path=db or Settings().database_path)
     service = SearchLeadsService(settings)
     try:
+        if source != "places":
+            raise ValueError("Use instagram-search for independent Instagram search")
         result = service.search(query, location, source, limit, campaign)
         selected = (
             service.store.get_campaign(campaign)
@@ -84,6 +87,53 @@ def search(
     )
 
 
+@app.command("instagram-search")
+def instagram_search(
+    search: str,
+    search_limit: int = typer.Option(10, "--search-limit", min=1, max=250),
+    campaign: str | None = typer.Option(None, "--campaign"),
+    db: str | None = typer.Option(None, "--db"),
+) -> None:
+    if not campaign:
+        raise typer.BadParameter("Select an existing Instagram campaign with --campaign")
+    settings = Settings(database_path=db or Settings().database_path)
+    from .search_requests import InstagramSearchRequest
+    try:
+        validated = InstagramSearchRequest(search=search, searchLimit=search_limit)
+    except ValueError:
+        raise typer.BadParameter("Instagram requires one phrase without commas and a limit from 1 to 250") from None
+    try:
+        result = SearchLeadsService(settings).search(validated.search, "", "instagram", validated.searchLimit, campaign)
+    except (ValueError, ApifyError) as exc:
+        from .service import _safe_error_summary
+        raise typer.BadParameter(_safe_error_summary(exc)) from None
+    if result.status in {RunStatus.FAILED, RunStatus.ABORTED, RunStatus.TIMED_OUT}:
+        typer.echo(f"Instagram search ended with status {result.status.value}", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(json.dumps({"source": "instagram", "status": result.status.value, "received_count": result.received_count, "accepted_count": result.accepted_count, "rejected_count": result.rejected_count, "profiles": [record.model_dump(mode="json") for record in result.projections]}, ensure_ascii=False))
+
+
+@app.command("instagram-export")
+def instagram_export(run_id: str, output: str, format: str = typer.Option("json", "--format"), db: str | None = typer.Option(None, "--db")) -> None:
+    try:
+        LeadStore(db or Settings().database_path).export_instagram(run_id, output, format)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from None
+    typer.echo("Exported independent Instagram profiles")
+
+
+@jobs_app.command("submit-instagram")
+def submit_instagram_job(search: str, idempotency_key: str = typer.Option(..., "--idempotency-key"), search_limit: int = typer.Option(10, "--search-limit", min=1, max=250), campaign: str | None = typer.Option(None, "--campaign"), db: str | None = typer.Option(None, "--db")) -> None:
+    from .search_requests import InstagramSearchRequest
+    from .execution.service import JobService
+    try:
+        request = {**InstagramSearchRequest(search=search, searchLimit=search_limit).model_dump(), "campaign_id": campaign}
+        job = JobService(db or Settings().database_path).submit(request, idempotency_key)
+    except ValueError:
+        raise typer.BadParameter("Instagram requires an existing --campaign, one phrase without commas and a limit from 1 to 250") from None
+    typer.echo(f"Submitted job '{job.job_id}' ({job.state})")
+
+
 @jobs_app.command("submit")
 def jobs_submit(
     query: str,
@@ -98,6 +148,8 @@ def jobs_submit(
     db: str | None = typer.Option(None, "--db"),
 ) -> None:
     from .execution.service import JobService
+    if source != "places":
+        raise typer.BadParameter("Use jobs submit-instagram for Instagram; historical sources cannot execute")
     settings = Settings()
     request = {"query": query, "location": location, "source": source, "limit": limit, "campaign_id": campaign}
     if estimated_cost is not None:
@@ -124,7 +176,10 @@ def jobs_status(job_id: str, db: str | None = typer.Option(None, "--db")) -> Non
 @jobs_app.command("cancel")
 def jobs_cancel(job_id: str, db: str | None = typer.Option(None, "--db")) -> None:
     from .execution.service import JobService
-    job = JobService(db or Settings().database_path).cancel(job_id)
+    settings = Settings(database_path=db or Settings().database_path)
+    job = JobService(settings.database_path).cancel(
+        job_id, abort_provider_run=SearchLeadsService(settings).abort_provider_run
+    )
     if job is None:
         raise typer.BadParameter(f"job not found: {job_id}")
     typer.echo(f"Job '{job.job_id}' is {job.state}")
@@ -199,6 +254,37 @@ def export(
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
     typer.echo(f"Exported {path}")
+
+
+
+instagram_campaign_app = typer.Typer(help="Manage independent Instagram campaigns.")
+app.add_typer(instagram_campaign_app, name="instagram-campaign")
+
+
+@instagram_campaign_app.command("create")
+def instagram_campaign_create(name: str, campaign: str | None = typer.Option(None, "--campaign"), db: str | None = typer.Option(None, "--db")):
+    try:
+        result = LeadStore(db or Settings().database_path).create_instagram_campaign(name, campaign_id=campaign)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from None
+    typer.echo(json.dumps(result, ensure_ascii=False))
+
+
+@instagram_campaign_app.command("list")
+def instagram_campaign_list(db: str | None = typer.Option(None, "--db")):
+    typer.echo(json.dumps(LeadStore(db or Settings().database_path).instagram_campaigns(), ensure_ascii=False))
+
+
+@instagram_campaign_app.command("export")
+def instagram_campaign_export(campaign: str, output: str, format: str = typer.Option("json", "--format"), db: str | None = typer.Option(None, "--db")):
+    from .exporters import render_instagram_profiles
+    from pathlib import Path
+    try:
+        content = render_instagram_profiles(LeadStore(db or Settings().database_path).instagram_campaign_profiles(campaign), format)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from None
+    Path(output).parent.mkdir(parents=True, exist_ok=True)
+    Path(output).write_bytes(content)
 
 
 if __name__ == "__main__":

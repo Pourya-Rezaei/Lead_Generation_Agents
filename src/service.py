@@ -10,7 +10,6 @@ from .errors import (
     ApifyTransientError,
     CampaignNotFoundError,
     ProviderAbortOutcomeUnknown,
-    SearchAttemptPersistenceError,
 )
 from .registry import ConnectorRegistry, SourceCapability
 from .results import SearchResult
@@ -48,7 +47,14 @@ class SearchLeadsService:
     ) -> None:
         self.settings = settings
         self.store = store or LeadStore(settings.database_path)
-        self.registry = registry or ConnectorRegistry()
+        if registry is not None:
+            self.registry = registry
+        else:
+            try:
+                self.registry = ConnectorRegistry(settings)
+            except TypeError:
+                # Preserve compatibility with test/integration registries using the legacy no-arg constructor.
+                self.registry = ConnectorRegistry()
         self.last_provider_run_id: str | None = None
         self.last_persisted_refs: dict[str, object] = {}
 
@@ -76,22 +82,32 @@ class SearchLeadsService:
         provider_run_id: str | None = None,
         on_provider_run=None,
     ) -> SearchResult:
-        if not query.strip() or not location.strip():
+        self.registry.validate_source(source)
+        if source == "instagram":
+            from .search_requests import InstagramSearchRequest
+            validated = InstagramSearchRequest(search=query, searchLimit=limit)
+            if location:
+                raise ValueError("Instagram does not accept location")
+            query = validated.search
+        if not query.strip() or (source == "places" and not location.strip()):
             raise ValueError("query and location must not be empty")
-        if limit < 1 or limit > self.settings.max_limit:
+        if limit < 1 or limit > (250 if source == "instagram" else self.settings.max_limit):
             raise ValueError(f"limit must be between 1 and {self.settings.max_limit}")
-        campaign = (
-            self.store.get_campaign(campaign_id)
-            if campaign_id is not None
-            else self.store.default_campaign()
-        )
+        if source == "instagram":
+            campaign_data = self.store.get_instagram_campaign(campaign_id) if campaign_id else None
+            if campaign_data is None:
+                raise ValueError("Select an existing Instagram campaign")
+            from .domain import Campaign
+            campaign = Campaign(**campaign_data)
+        else:
+            campaign = self.store.get_campaign(campaign_id) if campaign_id is not None else self.store.default_campaign()
         if campaign is None:
             raise CampaignNotFoundError(f"campaign not found: {campaign_id}")
         self.registry.validate_source(source)
         started_at = datetime.now(timezone.utc)
         connector = None
         try:
-            if source in {"places", "google_search"} and not self.settings.apify_api_token:
+            if not self.settings.apify_api_token:
                 raise ValueError(f"APIFY_API_TOKEN is required for {source}")
             connector = self.registry.create(source, self.settings)
             if callable(on_provider_run):
@@ -120,15 +136,14 @@ class SearchLeadsService:
                     _safe_error_summary(exc),
                     started_at=started_at,
                     failure_metadata=(
-                        connector.failure_metadata if connector is not None else None
+                        getattr(connector, "failure_metadata", None) if connector is not None else None
                     ),
                 )
-            except Exception as persistence_error:
-                raise SearchAttemptPersistenceError(
-                    f"Search failed ({type(exc).__name__}) and its failure record "
-                    "could not be saved "
-                    f"({type(persistence_error).__name__})."
-                ) from exc
+            except Exception:
+                # A provider failure must retain its safe public classification even
+                # when failure journaling is unavailable (for example, a transient
+                # SQLite error). Do not replace it with a 500-inducing wrapper.
+                pass
             raise
         summary = self.store.persist_search_result(campaign.campaign_id, result, query, location)
         self.last_persisted_refs = {
@@ -141,4 +156,6 @@ class SearchLeadsService:
                 for ref_run_id, record_index in summary.raw_record_refs
             ],
         }
+        if source == "instagram":
+            self.last_persisted_refs["source"] = "instagram"
         return result

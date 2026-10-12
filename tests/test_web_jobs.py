@@ -6,35 +6,6 @@ from src.config import Settings
 from src.web.app import create_app
 
 
-def test_social_preview_never_executes(tmp_path):
-    app = create_app(Settings(database_path=str(tmp_path / "preview.db"), _env_file=None))
-    response = TestClient(app).post("/api/social-searches/preview", json={"sources": ["instagram"], "query": "cafe", "limit": 3})
-    assert response.status_code == 200
-    preview = response.json()["previews"][0]
-    assert preview["executable"] is False
-    assert preview["contract_status"] == "blocked"
-
-
-def test_source_activation_request_is_blocked_without_schema(tmp_path):
-    app = create_app(Settings(database_path=str(tmp_path / "activation.db"), _env_file=None))
-    response = TestClient(app).post("/api/source-contracts/instagram/activation-request")
-    assert response.status_code == 409
-    assert response.json()["detail"]["code"] == "contract_gate_blocked"
-
-
-def test_source_contracts_show_linkedin_ready_and_others_blocked(tmp_path):
-    app = create_app(Settings(database_path=str(tmp_path / "sources.db"), _env_file=None))
-    client = TestClient(app)
-    contracts = client.get("/api/source-contracts")
-    page = client.get("/sources")
-    assert contracts.status_code == 200
-    statuses = {item["platform"]: item["status"] for item in contracts.json()}
-    assert statuses["linkedin_jobs"] == "passed"
-    assert statuses["instagram"] == statuses["tiktok"] == "blocked"
-    assert page.status_code == 200
-    assert "linkedin_jobs" in page.text
-
-
 def test_jobs_history_and_detail_render(tmp_path):
     database = str(tmp_path / "history.db")
     app = create_app(Settings(database_path=database, _env_file=None))

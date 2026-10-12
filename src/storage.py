@@ -93,15 +93,27 @@ class LeadStore:
         metadata = {
             "run_id": run_id,
             "source": result.source,
+            "contract_version": "instagram-search-standard-v1" if result.source == "instagram" else "places-v1",
+            "actor": "apify~instagram-search-scraper" if result.source == "instagram" else "compass~crawler-google-places",
             "dataset_id": result.dataset_id,
             "status": status,
             "partial": result.partial,
             "warnings": result.warnings,
+            "projections": [record.model_dump(mode="json") for record in result.projections],
+            "received_count": result.received_count,
+            "accepted_count": result.accepted_count,
+            "rejected_count": result.rejected_count,
+            "rejection_reasons": result.rejection_reasons,
             "query": query,
             "location": location,
             "started_at": result.started_at.isoformat(),
             "finished_at": result.finished_at.isoformat() if result.finished_at else None,
         }
+        if result.source == "instagram":
+            from .instagram_campaigns import InstagramCampaignRepository
+            with self._connect() as db:
+                InstagramCampaignRepository(db).persist(campaign_id, run_id, metadata)
+            return UpsertSummary()
         with self._connect() as db:
             campaigns = CampaignRepository(db)
             if campaigns.get(campaign_id) is None:
@@ -129,8 +141,10 @@ class LeadStore:
                     if row is not None:
                         observation = quality.record_lead_observation(row[0], lead, run_id=run_id)
                         observation_ids.append(observation.observation_id)
+                from .source_contracts import SOURCE_ALLOWLISTS
                 RawRecordRepository(db).save_allowlisted(
-                    run_id, result.raw_records, recorded_at=now
+                    run_id, result.raw_records, recorded_at=now,
+                    allowlist=SOURCE_ALLOWLISTS["instagram"] if result.source == "instagram" else None,
                 )
             if failed:
                 runs.fail(
@@ -166,7 +180,7 @@ class LeadStore:
         error_summary: str,
         *,
         started_at: datetime,
-        failure_metadata: dict[str, str] | None = None,
+        failure_metadata: dict[str, Any] | None = None,
     ) -> str:
         now = datetime.now(timezone.utc)
         run_id = f"local-{uuid.uuid4()}"
@@ -183,6 +197,25 @@ class LeadStore:
         provider_run_id = (failure_metadata or {}).get("provider_run_id")
         if isinstance(provider_run_id, str) and provider_run_id:
             metadata["provider_run_id"] = provider_run_id
+        if source == "instagram":
+            for key, allowed in (("failure_stage", {"start", "polling", "dataset", "contract"}), ("failure_code", {"start_unknown", "rate_limited", "start_failed", "poll_timeout", "poll_failed", "dataset_failed", "unknown_schema"})):
+                value = (failure_metadata or {}).get(key)
+                if isinstance(value, str) and value in allowed:
+                    metadata[key] = value
+            for key in ("received_count", "accepted_count", "rejected_count"):
+                value = (failure_metadata or {}).get(key)
+                if type(value) is int and value >= 0:
+                    metadata[key] = value
+            reasons = (failure_metadata or {}).get("rejection_reasons")
+            if isinstance(reasons, dict):
+                allowed_reasons = {"unknown_schema", "private_profile", "privacy_unverified", "business_unverified", "invalid_identity", "duplicate_profile"}
+                metadata["rejection_reasons"] = {key: value for key, value in reasons.items() if key in allowed_reasons and type(value) is int and value >= 0}
+        if source == "instagram":
+            from .instagram_campaigns import InstagramCampaignRepository
+            metadata.update(status="failed", finished_at=now.isoformat())
+            with self._connect() as db:
+                InstagramCampaignRepository(db).persist(campaign_id, run_id, metadata)
+            return run_id
         with self._connect() as db:
             campaigns = CampaignRepository(db)
             if campaigns.get(campaign_id) is None:
@@ -237,6 +270,58 @@ class LeadStore:
             if campaigns.get(campaign_id) is None:
                 raise CampaignNotFoundError(f"campaign not found: {campaign_id}")
             return LeadRepository(db).for_campaign(campaign_id)
+
+    def instagram_campaigns(self):
+        from .instagram_campaigns import InstagramCampaignRepository
+        with self._connect() as db:
+            return InstagramCampaignRepository(db).list()
+
+    def get_instagram_campaign(self, campaign_id):
+        from .instagram_campaigns import InstagramCampaignRepository
+        with self._connect() as db:
+            return InstagramCampaignRepository(db).get(campaign_id)
+
+    def create_instagram_campaign(self, name, description=None, campaign_id=None):
+        from .instagram_campaigns import InstagramCampaignRepository
+        with self._connect() as db:
+            return InstagramCampaignRepository(db).create(name, description, campaign_id)
+
+    def instagram_campaign_profiles(self, campaign_id):
+        from .instagram_campaigns import InstagramCampaignRepository
+        with self._connect() as db:
+            return InstagramCampaignRepository(db).profiles(campaign_id)
+
+    def instagram_campaign_runs(self, campaign_id):
+        from .instagram_campaigns import InstagramCampaignRepository
+        with self._connect() as db:
+            return InstagramCampaignRepository(db).runs(campaign_id)
+
+    def instagram_profiles(self, run_id: str):
+        """Reload only this run's independent, privacy-validated profiles."""
+        import json
+        from .source_contracts import InstagramRecord
+        with self._connect() as db:
+            row = db.execute("SELECT payload, status FROM instagram_campaign_runs WHERE run_id = ?", (run_id,)).fetchone()
+            if row is None:
+                row = db.execute("SELECT payload, status FROM runs WHERE run_id = ?", (run_id,)).fetchone()
+        if row is None:
+            raise ValueError("run not found")
+        payload = json.loads(row[0])
+        if payload.get("source") != "instagram" or payload.get("contract_version") != "instagram-search-standard-v1":
+            raise ValueError("run is not an independent Instagram search")
+        profiles = []
+        for item in payload.get("projections", []):
+            try:
+                profile = InstagramRecord.model_validate(item)
+                if profile.private is False:
+                    profiles.append(profile)
+            except ValueError:
+                continue
+        return profiles
+
+    def export_instagram(self, run_id: str, target: str, format: str = "json") -> None:
+        from .exporters import export_instagram_profiles
+        export_instagram_profiles(self.instagram_profiles(run_id), target, format)
 
     def export(
         self,

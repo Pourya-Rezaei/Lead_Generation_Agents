@@ -42,10 +42,20 @@ class JobWorker:
         return self._stop_event.is_set()
 
     def _replay_cached_refs(self, refs: dict[str, Any]) -> bool:
+        if refs.get("source") == "instagram":
+            run_id, campaign_id = refs.get("run_id"), refs.get("campaign_id")
+            if not isinstance(run_id, str) or not isinstance(campaign_id, str):
+                return False
+            row = self.connection.execute(
+                "SELECT 1 FROM instagram_campaign_runs r JOIN instagram_campaigns c "
+                "ON c.campaign_id=r.campaign_id WHERE r.run_id=? AND r.campaign_id=? AND r.status='succeeded'",
+                (run_id, campaign_id),
+            ).fetchone()
+            return row is not None
         lead_ids = refs.get("lead_ids")
         campaign_id = refs.get("campaign_id")
         run_id = refs.get("run_id")
-        if not isinstance(lead_ids, list) or not lead_ids or not isinstance(campaign_id, str) or not isinstance(run_id, str) or not run_id:
+        if not isinstance(lead_ids, list) or not (lead_ids or refs.get("raw_record_refs")) or not isinstance(campaign_id, str) or not isinstance(run_id, str) or not run_id:
             return False
         campaign = self.connection.execute(
             "SELECT 1 FROM campaigns WHERE campaign_id = ?", (campaign_id,)
@@ -137,15 +147,26 @@ class JobWorker:
         reservation_id = None
         cache = ExecutionCache(self.connection)
         try:
+            if job.request.get("source", "places") not in {"places", "instagram"} or job.request.get("operation") not in {None, "search"} or job.request.get("sources"):
+                raise ValueError("unsupported_source")
+            if job.request.get("source") == "instagram":
+                from ..search_requests import validate_job_request
+                try:
+                    validate_job_request(job.request)
+                except ValueError:
+                    raise ValueError("unsupported_source: historical Instagram request") from None
+            preflight = getattr(handler, "preflight", None)
+            if callable(preflight):
+                preflight(job.request)
             cached = None if job.request.get("force_refresh") else cache.get(job.request)
             if cached is not None and cache.is_replayable(cached) and self._replay_cached_refs(cached["persisted_refs"]):
-                self.connection.execute("UPDATE jobs SET state = 'succeeded', progress = ?, lease_until = NULL, updated_at = datetime('now') WHERE job_id = ? AND worker_id = ? AND fencing_token = ?", (json.dumps({"completed_steps": cached.get("completed_steps", []), "cached": True, "persisted_refs": cached["persisted_refs"]}), job.job_id, self.worker_id, job.fencing_token))
+                self.connection.execute("UPDATE jobs SET state = 'succeeded', progress = ?, lease_until = NULL, updated_at = datetime('now') WHERE job_id = ? AND worker_id = ? AND fencing_token = ?", (json.dumps({**cached, "cached": True}), job.job_id, self.worker_id, job.fencing_token))
                 self.connection.commit()
                 return self.jobs.get(job.job_id)
             if job.request.get("estimated_cost") is not None:
                 reservation = BudgetRepository(self.connection).reserve(
                     job.job_id,
-                    "places",
+                    str(job.request.get("source", "places")),
                     Decimal(str(job.request["estimated_cost"])),
                     str(job.request.get("currency", "USD")),
                     Decimal(str(job.request.get("max_cost", job.request["estimated_cost"]))),
@@ -183,6 +204,9 @@ class JobWorker:
                 steps = list(result.get("completed_steps", []))
                 result_state = str(result.get("state", "succeeded"))
                 result_details = {"sources": result.get("sources", [])}
+                for count_name in ("received_count", "accepted_count", "rejected_count"):
+                    if count_name in result:
+                        result_details[count_name] = result[count_name]
                 if isinstance(result.get("persisted_refs"), dict):
                     result_details["persisted_refs"] = result["persisted_refs"]
                 provider_run_id = result.get("provider_run_id")
@@ -236,7 +260,8 @@ class JobWorker:
             elif result_state in {"running", "pending"}:
                 self.connection.execute("UPDATE jobs SET state = 'queued', lease_until = NULL, updated_at = datetime('now') WHERE job_id = ? AND worker_id = ? AND fencing_token = ?", (job.job_id, self.worker_id, job.fencing_token))
             else:
-                cache.put(job.request, {"state": "succeeded", "completed_steps": steps, **({"persisted_refs": result_details["persisted_refs"]} if "persisted_refs" in result_details else {})})
+                cache_details = {key: value for key, value in result_details.items() if key in {"persisted_refs", "received_count", "accepted_count", "rejected_count"}}
+                cache.put(job.request, {"state": "succeeded", "completed_steps": steps, **cache_details})
             current = self.jobs.get(job.job_id)
             if current is None:
                 return None
@@ -262,7 +287,7 @@ class JobWorker:
                 error_code = "ProviderAbortOutcomeUnknown"
             else:
                 state = "failed"
-                error_code = type(exc).__name__
+                error_code = "unsupported_source" if isinstance(exc, ValueError) and "unsupported_source" in str(exc) else type(exc).__name__
             self.connection.execute(
                 "UPDATE jobs SET state = ?, error_code = ?, lease_until = NULL, updated_at = datetime('now') "
                 "WHERE job_id = ? AND worker_id = ? AND fencing_token = ?",

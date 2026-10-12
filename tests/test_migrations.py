@@ -21,7 +21,7 @@ def legacy_database(path: Path) -> None:
 
 def test_campaign_membership_primary_key_uses_lead_id():
     with sqlite3.connect(":memory:") as connection:
-        assert migrate(connection) == 17
+        assert migrate(connection) == CURRENT_SCHEMA_VERSION
         columns = connection.execute("PRAGMA table_info(campaign_leads)").fetchall()
         primary_key = [row[1] for row in sorted((row for row in columns if row[5]), key=lambda row: row[5])]
         assert primary_key == ["campaign_id", "lead_id"]

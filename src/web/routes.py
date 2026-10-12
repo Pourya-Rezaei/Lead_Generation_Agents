@@ -3,19 +3,10 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pathlib import Path
 from datetime import datetime, timezone
 import sqlite3
-from tempfile import NamedTemporaryFile
+import json
 
-from ..errors import (
-    ApifyCredentialError,
-    ApifyMalformedResponseError,
-    ApifyNotFoundError,
-    ApifyTransientError,
-)
+from ..errors import ApifyError
 from ..service import _safe_error_summary
-from ..registry import DisabledSourceError
-from ..social_service import SocialSearchRequest
-from ..orchestration import MultiSourceOrchestrator
-from ..connectors.social_profiles import SOCIAL_ACTOR_ADAPTERS
 from .schemas import CampaignForm
 
 router = APIRouter()
@@ -64,69 +55,21 @@ def health_ready(request: Request):
     return {"status": "ready", "database": True, "worker": worker if heartbeat else "not_required"}
 
 
-@router.post("/api/social-searches/preview")
-def api_preview_social_search(payload: SocialSearchRequest):
-    from ..connectors.social_profiles import SOCIAL_ACTOR_ADAPTERS
-    previews = []
-    for source in payload.sources:
-        connector = SOCIAL_ACTOR_ADAPTERS.get(source)
-        if connector is not None:
-            input_model = connector.platform
-            previews.append({
-                "source": source,
-                "actor": connector.actor,
-                "pricing_summary": connector.contract.pricing_summary,
-                "contract_status": connector.contract.gate_report.status,
-                "executable": False,
-                "reason": "contract_gate_blocked",
-                "request_mode": payload.mode,
-                "input_model": input_model,
-            })
-    return {"mode": payload.mode, "limit": payload.limit, "previews": previews}
-
-
-@router.post("/api/social-searches")
-def api_submit_social_search(request: Request, payload: SocialSearchRequest):
-    """Validate a public social request without activating disabled Actors."""
-    try:
-        selected = request.app.state.social_service.validate(payload)
-        results = request.app.state.social_service.search(payload)
-    except DisabledSourceError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    return {
-        "mode": payload.mode,
-        "sources": [capability.name for capability in selected],
-        "results": results,
-    }
-
-
-@router.post("/api/orchestrated-searches")
-def api_submit_orchestrated_search(request: Request, payload: dict):
-    sources = payload.get("sources")
-    if not isinstance(sources, list) or not sources:
-        raise HTTPException(status_code=422, detail="sources must be a non-empty list")
-    try:
-        request.app.state.service.select_sources(sources)
-    except ValueError as exc:
-        raise HTTPException(status_code=409, detail="selected source is unavailable") from exc
-    from ..execution.service import JobService
-    key = str(payload.get("idempotency_key", "")).strip()
-    if not key:
-        raise HTTPException(status_code=422, detail="idempotency_key is required")
-    job = JobService(request.app.state.settings.database_path).submit(payload, key)
-    return {"job_id": job.job_id, "state": job.state, "sources": sources}
-
-
 @router.post("/api/jobs")
 def api_submit_job(request: Request, payload: dict):
     from ..execution.service import JobService
-    required = {"query", "location"}
-    if not required <= payload.keys():
-        raise HTTPException(status_code=422, detail="query and location are required")
+    from ..search_requests import validate_job_request
+    try:
+        validate_job_request(payload)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid or unsupported source-specific request") from None
     key = str(payload.get("idempotency_key", "")).strip()
     if not key:
         raise HTTPException(status_code=422, detail="idempotency_key is required")
-    job = JobService(request.app.state.settings.database_path).submit(payload, key)
+    try:
+        job = JobService(request.app.state.settings.database_path).submit(payload, key)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Select an existing source-specific campaign") from None
     return {"job_id": job.job_id, "state": job.state}
 
 
@@ -163,8 +106,8 @@ def api_resolve_job_review(request: Request, job_id: str, payload: dict):
             provider_run_id=payload.get("provider_run_id") if isinstance(payload.get("provider_run_id"), str) else None,
             confirmed_no_remote_run=payload.get("confirmed_no_remote_run") is True,
         )
-    except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from None
+    except ValueError:
+        raise HTTPException(status_code=409, detail="Request cannot be resumed or retried safely; verify the source and provider-run confirmation") from None
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     return {"job_id": job.job_id, "state": job.state, "progress": job.progress}
@@ -181,7 +124,16 @@ def api_retry_job(request: Request, job_id: str):
     if job.state not in {"failed", "partial", "cancelled"}:
         raise HTTPException(status_code=409, detail="job is not retryable")
     retry_key = f"retry:{job_id}:{uuid.uuid4().hex}"
-    retried = service.submit(job.request, retry_key)
+    retry_request = dict(job.request)
+    from ..search_requests import validate_job_request
+    try:
+        validate_job_request(retry_request)
+    except ValueError:
+        raise HTTPException(status_code=409, detail="unsupported_source") from None
+    try:
+        retried = service.submit(retry_request, retry_key)
+    except ValueError:
+        raise HTTPException(status_code=409, detail="Select an existing source-specific campaign") from None
     return {"job_id": retried.job_id, "state": retried.state, "retry_of": job_id}
 
 
@@ -205,34 +157,9 @@ def _source_capabilities(request: Request):
     return capabilities if isinstance(capabilities, tuple) else ()
 
 
-@router.post("/api/source-contracts/{platform}/activation-request")
-def request_source_activation(platform: str):
-    connector = SOCIAL_ACTOR_ADAPTERS.get(platform)
-    if connector is None:
-        raise HTTPException(status_code=404, detail="source contract not found")
-    report = connector.contract.gate_report
-    if not report.passed:
-        raise HTTPException(
-            status_code=409,
-            detail={"code": "contract_gate_blocked", "failed_gates": report.failed_gates},
-        )
-    return {"platform": platform, "status": "awaiting_explicit_paid_smoke_approval"}
-
-
 @router.get("/api/source-contracts")
 def api_source_contracts():
-    return [
-        {
-            "platform": connector.platform,
-            "actor": connector.actor,
-            "docs_url": connector.contract.docs_url,
-            "pricing_summary": connector.contract.pricing_summary,
-            "status": connector.contract.gate_report.status,
-            "failed_gates": connector.contract.gate_report.failed_gates,
-            "execution_policy": connector.contract.execution_policy,
-        }
-        for connector in SOCIAL_ACTOR_ADAPTERS.values()
-    ]
+    return [{"platform": "places", "actor": "compass~crawler-google-places", "status": "enabled"}, {"platform": "instagram", "actor": "apify~instagram-search-scraper", "status": "standard_only"}]
 
 
 @router.get("/sources", response_class=HTMLResponse)
@@ -260,7 +187,49 @@ def job_detail_page(request: Request, job_id: str):
     job = JobService(request.app.state.settings.database_path).get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
-    return _templates(request).TemplateResponse(request=request, name="job_detail.html", context={"job": job})
+    import sqlite3
+    service = JobService(request.app.state.settings.database_path)
+    attempts = service.provider_attempts(job_id)
+    refs = job.progress.get("persisted_refs", {})
+    run_ids = {item["provider_run_id"] for item in attempts if item.get("provider_run_id") and item["source"] == "instagram"}
+    if isinstance(refs, dict) and isinstance(refs.get("run_id"), str):
+        run_ids.add(refs["run_id"])
+    if job.request.get("source") == "instagram" and job.provider_run_id:
+        run_ids.add(job.provider_run_id)
+    profiles, counts = [], None
+    independent_run_id = None
+    with sqlite3.connect(request.app.state.settings.database_path) as db:
+        for run_id in sorted(run_ids):
+            row = db.execute("SELECT payload, status FROM instagram_campaign_runs WHERE run_id = ?", (run_id,)).fetchone()
+            if row is None:
+                row = db.execute("SELECT payload, status FROM runs WHERE run_id = ?", (run_id,)).fetchone()
+            if not row or row[1] != "succeeded":
+                continue
+            payload = json.loads(row[0])
+            if payload.get("source") != "instagram" or payload.get("contract_version") != "instagram-search-standard-v1":
+                continue
+            counts = {key: payload.get(key, 0) for key in ("received_count", "accepted_count", "rejected_count")}
+            independent_run_id = run_id
+            profiles = request.app.state.store.instagram_profiles(run_id)
+    from ..search_requests import validate_job_request
+    try:
+        validate_job_request(job.request)
+        can_execute = True
+    except ValueError:
+        can_execute = False
+    return _templates(request).TemplateResponse(request=request, name="job_detail.html", context={"job": job, "can_execute": can_execute, "instagram_profiles": profiles, "instagram_counts": counts, "instagram_run_id": independent_run_id, "provider_attempts": attempts})
+
+
+@router.get("/api/instagram-runs/{run_id}/export/{format}")
+def export_instagram_run(request: Request, run_id: str, format: str):
+    if format not in {"json", "csv"}:
+        raise HTTPException(status_code=422, detail="format must be json or csv")
+    try:
+        profiles = request.app.state.store.instagram_profiles(run_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Independent Instagram run not found") from None
+    from ..exporters import render_instagram_profiles
+    return Response(render_instagram_profiles(profiles, format), media_type="application/json" if format == "json" else "text/csv", headers={"Content-Disposition": f'attachment; filename="instagram-profiles.{format}"'})
 
 
 @router.get("/profiles/{lead_id}", response_class=HTMLResponse)
@@ -282,18 +251,7 @@ def api_profile_candidates(request: Request, lead_id: str):
 
 @router.post("/api/profile-candidates/{candidate_id}/review")
 def api_review_profile(request: Request, candidate_id: str, payload: dict):
-    from ..quality.profiles import ProfileRepository
-    import sqlite3
-    status = str(payload.get("status", ""))
-    reason = str(payload.get("reason", ""))
-    with sqlite3.connect(request.app.state.settings.database_path) as db:
-        try:
-            ProfileRepository(db).review(candidate_id, status, reason)
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-        if db.execute("SELECT changes()").fetchone()[0] == 0:
-            raise HTTPException(status_code=404, detail="Profile candidate not found")
-    return {"candidate_id": candidate_id, "status": status}
+    raise HTTPException(status_code=409, detail="Historical profile candidates are read-only")
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -307,7 +265,10 @@ def dashboard(request: Request):
 
 
 @router.get("/campaigns", response_class=HTMLResponse)
+@router.get("/google-places-campaigns", response_class=HTMLResponse)
 def campaigns(request: Request):
+    if request.url.path == "/campaigns":
+        return RedirectResponse(str(request.url.replace(path="/google-places-campaigns")), status_code=307)
     return _templates(request).TemplateResponse(
         request=request,
         name="campaigns.html",
@@ -316,6 +277,7 @@ def campaigns(request: Request):
 
 
 @router.post("/campaigns")
+@router.post("/google-places-campaigns")
 def create_campaign(
     request: Request,
     campaign_id: str = Form(...),
@@ -337,11 +299,14 @@ def create_campaign(
             },
             status_code=400,
         )
-    return RedirectResponse(f"/campaigns/{form.campaign_id}", status_code=303)
+    return RedirectResponse(f"/google-places-campaigns/{form.campaign_id}", status_code=303)
 
 
 @router.get("/campaigns/{campaign_id}", response_class=HTMLResponse)
+@router.get("/google-places-campaigns/{campaign_id}", response_class=HTMLResponse)
 def campaign_detail(request: Request, campaign_id: str):
+    if request.url.path.startswith("/campaigns/"):
+        return RedirectResponse(str(request.url.replace(path=request.url.path.replace("/campaigns/", "/google-places-campaigns/", 1))), status_code=307)
     store = request.app.state.store
     campaign = store.get_campaign(campaign_id)
     if campaign is None:
@@ -358,15 +323,16 @@ def campaign_detail(request: Request, campaign_id: str):
 
 
 @router.get("/campaigns/{campaign_id}/export")
+@router.get("/google-places-campaigns/{campaign_id}/export")
 def export_campaign(request: Request, campaign_id: str, format: str = "json"):
+    if request.url.path.startswith("/campaigns/"):
+        return RedirectResponse(str(request.url.replace(path=request.url.path.replace("/campaigns/", "/google-places-campaigns/", 1))), status_code=307)
     if format not in {"json", "csv"}:
         raise HTTPException(status_code=400, detail="format must be json or csv")
     if request.app.state.store.get_campaign(campaign_id) is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
-    suffix = f".{format}"
-    with NamedTemporaryFile(suffix=suffix) as temporary:
-        request.app.state.store.export(temporary.name, format, campaign_id=campaign_id)
-        content = Path(temporary.name).read_bytes()
+    from ..exporters import render_leads
+    content = render_leads(request.app.state.store.leads_for_campaign(campaign_id), format)
     media_type = "application/json" if format == "json" else "text/csv; charset=utf-8"
     return Response(
         content=content,
@@ -378,13 +344,15 @@ def export_campaign(request: Request, campaign_id: str, format: str = "json"):
 
 
 @router.get("/search", response_class=HTMLResponse)
-def search_form(request: Request):
+def search_form(request: Request, source: str = "places"):
+    if source not in {"places", "instagram"}:
+        raise HTTPException(status_code=422, detail="unsupported_source")
     return _templates(request).TemplateResponse(
         request=request,
         name="search.html",
         context={
-            "campaigns": request.app.state.store.campaigns(),
-            "source": "places",
+            "campaigns": request.app.state.store.instagram_campaigns() if source == "instagram" else request.app.state.store.campaigns(),
+            "source": source,
             "sources": _source_capabilities(request),
         },
     )
@@ -393,40 +361,60 @@ def search_form(request: Request):
 @router.post("/search", response_class=HTMLResponse)
 def run_search(
     request: Request,
-    query: str = Form(...),
-    location: str = Form(...),
+    query: str | None = Form(None),
+    location: str | None = Form(None),
+    search: str | None = Form(None),
+    searchLimit: str | None = Form(None),
     campaign_id: str = Form(...),
-    limit: str = Form("20"),
+    limit: str | None = Form(None),
     source: list[str] = Form(default=["places"]),
 ):
-    sources = list(dict.fromkeys(source))
+    sources = source
     form = {
-        "query": query,
-        "location": location,
+        "search": search or "",
+        "searchLimit": searchLimit or "10",
+        "query": query or "",
+        "location": location or "",
         "campaign_id": campaign_id,
-        "limit": limit,
+        "limit": limit or "20",
         "sources": sources,
     }
-    campaigns = request.app.state.store.campaigns()
+    campaigns = request.app.state.store.instagram_campaigns() if sources == ["instagram"] else request.app.state.store.campaigns()
     try:
-        parsed_limit = int(limit)
-        if any(item not in {"places", "google_search", "linkedin_jobs"} for item in sources):
+        parsed_limit = int(limit or "20")
+        if len(sources) != 1 or sources[0] not in {"places", "instagram"}:
             raise ValueError("Selected source is not enabled.")
-        if not query.strip() or not location.strip():
+        request.app.state.service.select_sources(sources)
+        if sources == ["places"] and (search is not None or searchLimit is not None):
+            raise ValueError("Places does not accept Instagram fields")
+        if sources == ["places"] and (not (query or "").strip() or not (location or "").strip()):
             raise ValueError("Query and location are required.")
+        # Apify-backed sources are asynchronous provider jobs.  Do not run their
+        # polling loop inside the browser request: a slow actor would otherwise
+        # make this route appear hung for up to the provider timeout.
+        if any(item != "places" for item in sources):
+            from ..execution.service import JobService
+            import hashlib
+
+            from ..search_requests import InstagramSearchRequest
+            if query is not None or location is not None or limit is not None:
+                raise ValueError("Instagram accepts only its search phrase")
+            validated = InstagramSearchRequest(search=search or "", searchLimit=int(searchLimit or "10"))
+            request_payload = {**validated.model_dump(), "campaign_id": campaign_id}
+            idempotency_key = "web-search-" + hashlib.sha256(
+                json.dumps(request_payload, sort_keys=True).encode("utf-8")
+            ).hexdigest()
+            job = JobService(request.app.state.settings.database_path).submit(
+                {key: value for key, value in request_payload.items() if value is not None},
+                idempotency_key,
+            )
+            return RedirectResponse(f"/jobs/{job.job_id}", status_code=303)
         if len(sources) == 1:
             request.app.state.service.search(
                 query, location, source=sources[0], limit=parsed_limit, campaign_id=campaign_id
             )
             result = {"state": "succeeded", "completed_steps": sources}
-        else:
-            result = MultiSourceOrchestrator(request.app.state.service).run(
-                query, location, sources, parsed_limit, campaign_id
-            )
-            if result["state"] == "failed":
-                raise ValueError("All selected sources failed.")
-    except (ValueError, ApifyCredentialError, ApifyNotFoundError,
-            ApifyTransientError, ApifyMalformedResponseError) as exc:
+    except (ValueError, ApifyError) as exc:
         status_code = 400 if isinstance(exc, ValueError) else 502
         return _templates(request).TemplateResponse(
             request=request,
@@ -434,9 +422,9 @@ def run_search(
             context={
                 "campaigns": campaigns,
                 "form": form,
-                "source": sources,
+                "source": sources[0] if len(sources) == 1 else "places",
                 "sources": _source_capabilities(request),
-                "error": _safe_error_summary(exc),
+                "error": ("ورودی منبع معتبر نیست؛ Instagram یک عبارت بدون کاما و سقف ۱ تا ۲۵۰ می‌پذیرد." if isinstance(exc, ValueError) else _safe_error_summary(exc)),
             },
             status_code=status_code,
         )
@@ -454,5 +442,57 @@ def run_search(
             status_code=207,
         )
     return RedirectResponse(
-        f"/campaigns/{campaign_id}?message=Search+completed", status_code=303
+        f"/google-places-campaigns/{campaign_id}?message=Search+completed", status_code=303
     )
+
+
+@router.get("/instagram-campaigns", response_class=HTMLResponse)
+def instagram_campaigns_page(request: Request):
+    return _templates(request).TemplateResponse(request=request, name="instagram_campaigns.html", context={"campaigns": request.app.state.store.instagram_campaigns()})
+
+
+@router.post("/instagram-campaigns")
+def create_instagram_campaign(request: Request, campaign_id: str = Form(...), name: str = Form(...), description: str = Form("")):
+    try:
+        form = CampaignForm.from_form(campaign_id, name, description)
+        request.app.state.store.create_instagram_campaign(form.name, form.description, form.campaign_id)
+    except ValueError:
+        return _templates(request).TemplateResponse(request=request, name="instagram_campaigns.html", context={"campaigns": request.app.state.store.instagram_campaigns(), "error": "نام یا شناسهٔ فهرست معتبر نیست."}, status_code=400)
+    return RedirectResponse(f"/instagram-campaigns/{form.campaign_id}", status_code=303)
+
+
+@router.get("/instagram-campaigns/{campaign_id}", response_class=HTMLResponse)
+def instagram_campaign_detail(request: Request, campaign_id: str):
+    store = request.app.state.store
+    campaign = store.get_instagram_campaign(campaign_id)
+    if campaign is None:
+        raise HTTPException(status_code=404, detail="Instagram campaign not found")
+    return _templates(request).TemplateResponse(request=request, name="instagram_campaign_detail.html", context={"campaign": campaign, "profiles": store.instagram_campaign_profiles(campaign_id), "runs": store.instagram_campaign_runs(campaign_id)})
+
+
+@router.get("/instagram-campaigns/{campaign_id}/export")
+def export_instagram_campaign(request: Request, campaign_id: str, format: str = "json"):
+    if format not in {"json", "csv"}:
+        raise HTTPException(status_code=422, detail="format must be json or csv")
+    if request.app.state.store.get_instagram_campaign(campaign_id) is None:
+        raise HTTPException(status_code=404, detail="Instagram campaign not found")
+    from ..exporters import render_instagram_profiles
+    return Response(render_instagram_profiles(request.app.state.store.instagram_campaign_profiles(campaign_id), format), media_type="application/json" if format == "json" else "text/csv", headers={"Content-Disposition": f'attachment; filename="instagram-campaign.{format}"'})
+
+
+@router.get("/api/instagram-campaigns")
+def api_instagram_campaigns(request: Request):
+    return request.app.state.store.instagram_campaigns()
+
+
+@router.post("/api/instagram-campaigns", status_code=201)
+def api_create_instagram_campaign(request: Request, payload: dict):
+    try:
+        name = payload.get("name")
+        campaign_id = payload.get("campaign_id")
+        description = payload.get("description")
+        if not isinstance(name, str) or (campaign_id is not None and not isinstance(campaign_id, str)) or (description is not None and not isinstance(description, str)):
+            raise ValueError("Invalid campaign")
+        return request.app.state.store.create_instagram_campaign(name, description, campaign_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid or duplicate Instagram campaign") from None

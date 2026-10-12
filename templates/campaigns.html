@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}کمپین‌ها · نقشهٔ لید{% endblock %}
+{% block title %}کمپین‌های Google Places · نقشهٔ لید{% endblock %}
 {% block content %}
-<section class="hero"><span class="eyebrow">مشتری‌های ذخیره‌شده</span><h1>فهرست‌های من</h1><p>{{ campaigns|length }} فهرست برای پیگیری مشتری‌ها</p><div class="actions"><a class="btn" href="/search">پیدا کردن مشتری</a></div></section>
-<details class="advanced" {% if not campaigns %}open{% endif %}><summary>ساخت فهرست جدید</summary><div class="panel">
+<section class="hero"><span class="eyebrow">Google Places</span><h1>کمپین‌های Google Places</h1><p>{{ campaigns|length }} کمپین برای کسب‌وکارهای Google Places</p><div class="actions"><a class="btn" href="/search?source=places">جست‌وجوی Google Places</a></div></section>
+<details class="advanced" {% if not campaigns %}open{% endif %}><summary>ساخت کمپین Google Places</summary><div class="panel">
   <div class="section-head"><div><h2>ساخت فهرست تازه</h2></div></div>
-  <form method="post" action="/campaigns" class="form-grid">
+  <form method="post" action="/google-places-campaigns" class="form-grid">
     <div class="field"><label for="campaign_id">شناسهٔ فهرست</label><input id="campaign_id" name="campaign_id" dir="ltr" placeholder="tehran-dentists" required></div>
     <div class="field"><label for="name">نام فهرست</label><input id="name" name="name" placeholder="دندان‌پزشکی تهران" required></div>
     <div class="field full"><label for="description">توضیح کوتاه <span class="muted">(اختیاری)</span></label><textarea id="description" name="description" rows="3" placeholder="هدف این کمپین چیست؟"></textarea></div>
@@ -13,7 +13,7 @@
 </div></details>
 <section class="section-head"><div><h2>فهرست‌های ذخیره‌شده</h2></div></section>
 <ul class="list">
-{% for campaign in campaigns %}<li><a href="/campaigns/{{ campaign.campaign_id }}"><span><strong>{{ campaign.name }}</strong><br><small class="muted">{{ campaign.description or 'بدون توضیح' }}</small></span><code>{{ campaign.campaign_id }}</code></a></li>
+{% for campaign in campaigns %}<li><a href="/google-places-campaigns/{{ campaign.campaign_id }}"><span><strong>{{ campaign.name }}</strong><br><small class="muted">{{ campaign.description or 'بدون توضیح' }}</small></span><code>{{ campaign.campaign_id }}</code></a></li>
 {% else %}<li class="card">هنوز کمپینی ساخته نشده است.</li>{% endfor %}
 </ul>
 {% endblock %}

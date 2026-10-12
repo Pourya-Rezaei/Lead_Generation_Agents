@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ campaign.name }} · Instagram{% endblock %}
+{% block content %}
+<section class="hero"><a class="eyebrow" href="/instagram-campaigns">فهرست‌های Instagram /</a><h1>{{ campaign.name }}</h1><p>{{ campaign.description or '' }}</p>
+<div class="actions"><a class="btn" href="/search?source=instagram">جست‌وجوی Instagram</a>
+<a class="btn secondary" href="/instagram-campaigns/{{ campaign.campaign_id }}/export?format=json">JSON</a>
+<a class="btn secondary" href="/instagram-campaigns/{{ campaign.campaign_id }}/export?format=csv">CSV</a></div></section>
+<div class="grid"><div class="card metric"><span>پروفایل‌های یکتا</span><strong>{{ profiles|length }}</strong></div><div class="card metric"><span>جست‌وجوها</span><strong>{{ runs|length }}</strong></div></div>
+<section class="section-head"><h2>پروفایل‌های ذخیره‌شده</h2></section>
+<div class="table-wrap" role="region" aria-label="پروفایل‌های Instagram" tabindex="0"><table class="table lead-table"><thead><tr><th>نام کاربری</th><th>نام نمایشی</th><th>بیوگرافی</th><th>پیوندها</th></tr></thead><tbody>
+{% for profile in profiles %}<tr><td data-label="نام کاربری"><a href="{{ profile.source_url }}" rel="noopener noreferrer" dir="ltr">{{ profile.username }}</a></td><td data-label="نام نمایشی">{{ profile.full_name }}</td><td data-label="بیوگرافی">{{ profile.biography or '—' }}</td><td data-label="پیوندها">{% for link in profile.external_links %}<a href="{{ link }}" rel="noopener noreferrer" dir="ltr">{{ link }}</a> {% else %}—{% endfor %}</td></tr>{% else %}<tr><td colspan="4" class="empty-state">هنوز پروفایلی ذخیره نشده است.</td></tr>{% endfor %}
+</tbody></table></div>
+<section class="section-head"><h2>تاریخچهٔ اجرا</h2></section><ul class="run-list">{% for run in runs %}<li><code>{{ run.run_id }}</code><span>{{ run.started_at }}</span><span class="status">{{ run.status }}</span></li>{% else %}<li class="muted">هنوز جست‌وجویی ثبت نشده است.</li>{% endfor %}</ul>
+{% endblock %}

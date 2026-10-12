@@ -4,7 +4,6 @@ from collections.abc import Callable
 from typing import Any
 
 from ..service import SearchLeadsService
-from ..orchestration import MultiSourceOrchestrator
 
 
 def _provider_run_callback(service: SearchLeadsService, request: dict[str, Any], source: str):
@@ -27,6 +26,9 @@ def _provider_run_callback(service: SearchLeadsService, request: dict[str, Any],
                 worker_id=worker_id, fencing_token=fencing_token,
             )
             if run_id and status in {"starting", "pending", "running", "resuming"}:
+                job = repo.get(job_id)
+                if job is not None and job.state == "cancel_requested":
+                    db.execute("UPDATE provider_attempts SET cancellation_requested = 1 WHERE job_id = ? AND source = ?", (job_id, source))
                 attempt = next(
                     (item for item in repo.provider_attempts(job_id) if item["source"] == source),
                     None,
@@ -38,7 +40,7 @@ def _provider_run_callback(service: SearchLeadsService, request: dict[str, Any],
                 ):
                     db.commit()
                     try:
-                        service.abort_provider_run(source_name, run_id)
+                        service.abort_provider_run(source, run_id)
                     except Exception:
                         db.execute(
                             "UPDATE provider_attempts SET status = 'abort_unknown', updated_at = datetime('now') "
@@ -61,10 +63,12 @@ def _provider_run_callback(service: SearchLeadsService, request: dict[str, Any],
 def places_handler(service: SearchLeadsService) -> Callable[[dict[str, Any]], Any]:
     """Build a worker handler for the existing synchronous Places use case."""
     def handle(request: dict[str, Any]) -> list[str]:
-        query = str(request.get("query", "")).strip()
+        from ..search_requests import validate_job_request
+        request = validate_job_request(request)
+        query = str(request.get("search", request.get("query", ""))).strip()
         location = str(request.get("location", "")).strip()
         source = str(request.get("source", "places"))
-        limit = int(request.get("limit", 20))
+        limit = int(request.get("searchLimit", request.get("limit", 20)))
         campaign_id = request.get("campaign_id")
         provider_run_id = request.get("provider_run_id")
         callback = _provider_run_callback(service, request, source)
@@ -81,28 +85,25 @@ def places_handler(service: SearchLeadsService) -> Callable[[dict[str, Any]], An
             result_state = "succeeded"
         details = getattr(service, "last_persisted_refs", {})
         result = {"completed_steps": [source], "state": result_state}
-        if isinstance(details, dict) and details.get("lead_ids"):
+        if isinstance(details, dict) and (details.get("lead_ids") or details.get("raw_record_refs") or (source == "instagram" and details.get("run_id"))):
             result["persisted_refs"] = details
+        if source == "instagram":
+            result["received_count"] = search_result.received_count
+            result["accepted_count"] = search_result.accepted_count
+            result["rejected_count"] = search_result.rejected_count
         if isinstance(provider_run_id, str) and provider_run_id:
             result["provider_run_id"] = provider_run_id
         return result
 
+    def preflight(request: dict[str, Any]) -> None:
+        from ..search_requests import validate_job_request
+        validate_job_request(request)
+
+    setattr(handle, "preflight", preflight)
     return handle
 
 
-def multi_source_handler(service: SearchLeadsService) -> Callable[[dict[str, Any]], Any]:
-    """Build a worker handler that isolates each selected source."""
-    def handle(request: dict[str, Any]) -> dict[str, Any]:
-        sources = request.get("sources", [])
-        if not isinstance(sources, list) or not sources:
-            raise ValueError("sources must be a non-empty list")
-        return MultiSourceOrchestrator(service).run(
-            str(request.get("query", "")),
-            str(request.get("location", "")),
-            sources,
-            int(request.get("limit", 20)),
-            request.get("campaign_id"),
-            provider_run_ids=request.get("provider_run_ids", {}),
-            on_provider_run_factory=lambda source: _provider_run_callback(service, request, source),
-        )
+def multi_source_handler(service: SearchLeadsService):
+    def handle(request):
+        raise ValueError("unsupported_source: multi-source execution is no longer supported")
     return handle

@@ -13,7 +13,13 @@ class JobService:
         Path(database_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
 
     def submit(self, request: dict[str, Any], idempotency_key: str) -> Job:
+        from ..search_requests import validate_job_request
+        request = validate_job_request(request)
         with self._connect() as db:
+            if request.get("source") == "instagram":
+                from ..instagram_campaigns import InstagramCampaignRepository
+                if not InstagramCampaignRepository(db).get(request.get("campaign_id")):
+                    raise ValueError("Select an existing Instagram campaign")
             return JobRepository(db).submit(request, idempotency_key)
 
     def recent(self, limit: int = 50) -> list[Job]:
@@ -83,6 +89,9 @@ class JobService:
                 return None
             if job.state != "needs_review":
                 raise ValueError("job is not awaiting review")
+            if action in {"retry", "attach_run"}:
+                from ..search_requests import validate_job_request
+                validate_job_request(job.request)
             if action == "retry":
                 if not confirmed_no_remote_run:
                     raise ValueError("confirm that no provider run exists before retrying")

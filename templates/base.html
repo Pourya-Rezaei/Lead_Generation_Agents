@@ -16,12 +16,13 @@
         <span class="brand-mark">ن</span>
         <span>نقشهٔ لید<small>جمع‌آوری هوشمند کسب‌وکارهای محلی</small></span>
       </a>
+      <details class="workspace-menu" open><summary>منوی فضای کاری</summary>
       <nav class="nav" aria-label="منوی اصلی">
-        {% for href, label in [('/', 'خانه'), ('/search', 'پیدا کردن مشتری'), ('/campaigns', 'فهرست‌های من'), ('/jobs', 'تاریخچهٔ اجرا')] %}
+        {% for href, label in [('/', 'خانه'), ('/search', 'پیدا کردن مشتری'), ('/google-places-campaigns', 'کمپین‌های Google Places'), ('/instagram-campaigns', 'کمپین‌های Instagram'), ('/jobs', 'تاریخچهٔ اجرا'), ('/sources', 'وضعیت منابع')] %}
         <a href="{{ href }}" {% if request.url.path == href or (href != '/' and request.url.path.startswith(href + '/')) %}aria-current="page"{% endif %}>{{ label }}</a>
         {% endfor %}
-        <details class="nav-more"><summary>بیشتر</summary><a href="/sources" {% if request.url.path == '/sources' %}aria-current="page"{% endif %}>وضعیت منابع</a></details>
       </nav>
+      </details>
     </header>
     {% if message %}<p class="notice" role="status">{{ message }}</p>{% endif %}
     {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}

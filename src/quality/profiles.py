@@ -9,7 +9,7 @@ from ..enrichment import ProfileCandidate
 
 
 class ProfileRepository:
-    allowed_platforms = frozenset({"instagram", "tiktok", "youtube", "website"})
+    allowed_platforms = frozenset({"instagram", "website"})
 
     def __init__(self, connection: sqlite3.Connection):
         self.connection = connection

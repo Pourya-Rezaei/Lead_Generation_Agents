@@ -1,5 +1,28 @@
 # یکپارچه‌سازی Apify
 
+## Current two-source release (2026-10-11)
+
+The executable product supports only **Google Places** and **independent Instagram Search**. Places retains its query/location/limit contract. Instagram uses `apify~instagram-search-scraper`: exactly one editable `search` phrase (comma-separated terms rejected), `searchLimit` defaults to 10 and accepts 1..250, `searchType=user`, `liveSearch=false`, and `enhanceUserSearchWithFacebookPage=false`. No old `resultsType`, `directUrls`, or `addParentData` is sent.
+
+Select a source at `/search` before its separate form. Instagram jobs contain `source`, `search`, and `searchLimit`, not a fabricated location. Only explicitly public (`private=false`) profiles are accepted. Business status is optional and is not proof of a verified business. Names and canonical links, optional public biography, safe external links and aggregate counts are retained; contacts are not extracted from biography. Posts, comments, audience lists, Facebook data and email enrichment are discarded at ingestion. Geography is not guaranteed; absent address is not an error.
+
+Google Search, LinkedIn Jobs, YouTube, TikTok and the old Instagram enrichment workflow are **historical, non-executable**. Existing database rows are preserved without schema redesign. Old requests cannot start, retry, resume or replay cache; generic job history/provider-attempt information and safe abandonment remain available. The older sections below that discuss these sources describe previous releases, not current capabilities.
+
+Instagram profiles persist in existing run metadata and allowlisted raw records, never as fabricated Leads. Reload/export is scoped to one independent run; campaign Lead exports retain existing Places and historical Lead rows, and do not fabricate Instagram Leads. Historical profile candidates remain read-only. JSON/CSV downloads: `/api/instagram-runs/{run_id}/export/{json|csv}`. CLI: `instagram-search "phrase" --search-limit 10`, `jobs submit-instagram "phrase" --idempotency-key KEY`, and `instagram-export RUN_ID OUTPUT --format json`. API `/api/jobs` accepts a single source-specific request plus `idempotency_key`; multi-source/social/enrichment public routes are removed.
+
+Provider run IDs are journaled before polling; resume uses the same known run. Unknown POST start outcomes require review, not blind retries. Standard input/output fields were checked against the public Actor README/input documentation (`https://apify.com/apify/instagram-search-scraper/input-schema`); no paid Actor was called. Live mode is unavailable. Offline mocked tests do not certify real-world search quality or current pricing; any paid smoke requires separate authorization.
+
+
+## Instagram discovery contract
+
+The official public build input schema (`https://api.apify.com/v2/acts/apify~instagram-scraper/builds/default`, build **0.0.804**, inspected 2026-10-11) and [Actor README](https://apify.com/apify/instagram-scraper) document `searchType=profile`, `resultsType=details`, `searchLimit` (1–250), and `addParentData=false`. This application caps discovery at 100 and runs **only one Instagram Actor**, searching `query + city`; it does not start the Google Search Actor or a second details run. The Actor itself documents use of Instagram data and Google search internally. City is a keyword, not a verified geographic filter; relevant results are not guaranteed.
+
+Discovery is selectable only when `INSTAGRAM_ENRICHMENT_AUTHORIZED=true`; the default remains disabled. Only explicit `private=false` and `isBusinessAccount=true` profiles are accepted. Unknown privacy/business flags are counted as rejected, not inferred from a name/category. Every accepted result has a validated HTTPS canonical profile link and display name (username fallback). Username-only and URL-only identities are supported; numeric IDs alone, mismatched identities, place/post/reel URLs, private/personal profiles and commenter/owner-derived identities are not page results. The documented profile-details sample has no explicit address field, so `address=null`; no city/bio/place address or phone is inferred. No extra Actor is added to obtain an address.
+
+Provider posts/comments/followers/audience/biography/contact/owner data are discarded immediately. Only `id`, `username`, `url`, `fullName`, `externalUrl`, `businessCategoryName`, `isBusinessAccount`, `private`, `verified` survive the scalar allowlist. Typed Instagram projections and received/accepted/rejected counts plus safe rejection reasons live in the existing run payload, with aligned raw allowlisting; no database migration or business Lead is needed. `/jobs/{job_id}` renders linked page names from that job's run (also after reload/cache replay), never campaign-wide Leads. Legacy place records are not converted and Instagram cache keys use a new contract version.
+
+A known run ID is recorded before polling and resumed without another POST. Start ambiguity requires review; rate-limit/start errors, polling timeout, Actor terminal failure, malformed dataset and retrieval errors are failures rather than successful page discovery. Local timeout does **not** prove Actor cancellation or known final cost. Successful empty/policy-rejected datasets display «تکمیل شد، پیج عمومی تجاری یافت نشد»; unknown/place/post-only schemas fail the contract instead of claiming zero pages. Tests are mocked/offline: no paid calls or live smoke were performed, and real-world discovery quality/latency are unverified.
+
 ## Actor فعلی
 
 ```text
@@ -101,6 +124,28 @@ fields شغلی و شرکتی عمومی (`jobId`، `title`، `companyName`، `l
 تبدیل می‌شوند. فیلدهای email، owner، reviewer، commenter/comments، audience و
 viewer همیشه خارج از قرارداد خروجی هستند. فعال‌سازی فقط پس از تأیید مستند
 schema، قیمت و مجوز privacy مجاز است.
+
+## Instagram business-profile enrichment (offline implementation, disabled by default)
+
+This is a separate confirmed-candidate enrichment operation. Independent Instagram page discovery is now an opt-in source under the profile contract above; the legacy `/api/social-searches` path remains disabled. TikTok is explicitly blocked by user choice; LinkedIn Jobs is unchanged.
+
+The official public [input schema](https://apify.com/apify/instagram-scraper/input-schema) and [Actor documentation](https://apify.com/apify/instagram-scraper.md), checked on 2026-10-11, document discovery with `search` as a comma-separated string (not an array), `searchType: "profile"`, and `searchLimit`; confirmed-candidate profile details use `directUrls`. The adapter sends exactly:
+
+```json
+{"resultsType":"details","directUrls":["https://www.instagram.com/example_business/"],"resultsLimit":1,"addParentData":false}
+```
+
+The username here is illustrative; no real profile was requested. No search keywords, hashtags, posts/reels URLs, numeric profile IDs, query strings, credentials, ports, or alternate hosts are accepted. A single canonical HTTPS username URL must already belong to a **confirmed** Instagram candidate attached to an existing lead in the selected campaign. Confirmation is checked again before persistence. Returned `private` must be explicitly false, `isBusinessAccount` explicitly true, and username/URL must match the approved profile; otherwise the result is partial with no evidence. No new leads, inferred ownership, contacts or lead-field mutations are produced.
+
+Official details output includes `latestPosts`; the user explicitly relaxed the earlier no-fetch constraint to permit receiving these extras **only for immediate removal**, not persistence/exposure. Ingestion projects scalar, bounded fields `id`, `username`, `url`, `fullName`, `externalUrl` (HTTPS only), `businessCategoryName`, `isBusinessAccount`, `private`, `verified`, then clears the original provider dictionary/page. This excludes biography, posts, captions, comments, follower identities, follower/post/view/engagement metrics, images, nested objects, and all unexpected fields before any raw-record/observation/cache/UI/export handling. The same allowlist is enforced by raw storage. Evidence remains separate from the Lead export contract.
+
+The operation reuses provider attempts, one-shot start, ambiguity→needs_review, persisted-run resume/abort, job fencing/heartbeat, budget reservations and campaign/run/lead/observation lineage. Known runs are resumed instead of restarted; resume uses the existing reservation. Cache holds only persisted references, and enrichment cache **replay is intentionally disabled** so authorization and confirmation cannot be bypassed. Empty, private, non-business or mismatched datasets are partial, not successful. Failed transport/dataset attempts persist safe run failures; raw provider errors and credentials are not recorded.
+
+`GET /api/instagram-enrichment/capability` separately exposes supported/schema-verified/execution-authorized/live-smoke state. Local admission budgets use user-supplied `estimated_cost`, `max_cost`, USD and a reviewed `pricing_version`; these are not a verified live price or a guaranteed provider-side spending cap. Official published pricing may change (the current documentation describes pay-per-event and $2.70/1,000 results on Free); the older Phase E pricing table above is historical, not authorization. Actual costs remain unknown reservations until reconciled. No live smoke/build certification or paid execution has been performed.
+
+## قراردادهای خروجی منبع
+
+هر `SearchResult` علاوه بر Lead مشترک، `projections` تایپ‌شدهٔ منبع را ارائه می‌کند: Google Places برای اطلاعات کسب‌وکار و rating، Google Search برای title/url/snippet، Instagram برای پروفایل عمومی تجاری، و LinkedIn Jobs برای آگهی و اطلاعات حرفه‌ای شرکت. `raw_records` نیز پیش از persistence با allowlist همان منبع فیلتر می‌شوند. دادهٔ reviewer، پست، audience، شخص و استنتاج مالکیت در این قراردادها وجود ندارد. صفحهٔ `/search` این چهار قرارداد را در تب‌های هم‌صفحه نمایش می‌دهد و رفتار مشترک Campaign/Lead/export حفظ شده است.
 
 ## خطاهای مهم
 

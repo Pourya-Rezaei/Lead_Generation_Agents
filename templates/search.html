@@ -1,30 +1,31 @@
 {% extends "base.html" %}
 {% block title %}جست‌وجوی جدید · نقشهٔ لید{% endblock %}
 {% block content %}
-<section class="hero"><span class="eyebrow">جست‌وجوی جدید</span><h1>چه مشتری‌هایی می‌خواهی پیدا کنی؟</h1><p>نوع کسب‌وکار و شهر را انتخاب کن.</p></section>
+{% set selected_source = source|default('places') %}
+<section class="hero"><span class="eyebrow">جست‌وجوی جدید</span><h1>چه مشتری‌هایی می‌خواهی پیدا کنی؟</h1></section>
+<nav class="tabs" aria-label="انتخاب منبع جست‌وجو">
+  <a class="tab" href="/search?source=places" {% if selected_source == 'places' %}aria-current="page"{% endif %}>Google Places</a>
+  <a class="tab" href="/search?source=instagram" {% if selected_source == 'instagram' %}aria-current="page"{% endif %}>Instagram</a>
+</nav>
 <div class="panel search-workspace">
-  {% if notice %}<div class="notice">{{ notice }}</div>{% endif %}
-  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  {% if notice %}<div class="notice" role="status">{{ notice }}</div>{% endif %}
+  {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
   <form method="post" action="/search" class="form-grid">
-    <div class="field"><label for="query"><span class="step-label" aria-hidden="true">۱</span>چه کسب‌وکاری؟</label><input id="query" name="query" value="{{ form.query if form else '' }}" placeholder="مثلاً دندان‌پزشکی" required></div>
-    <div class="field"><label for="location"><span class="step-label" aria-hidden="true">۲</span>کدام شهر؟</label><input id="location" name="location" value="{{ form.location if form else '' }}" placeholder="مثلاً تهران" required></div>
-    <div class="field full"><label for="campaign_id"><span class="step-label" aria-hidden="true">۳</span>ذخیره در کدام فهرست؟</label><select id="campaign_id" name="campaign_id" required>{% for campaign in campaigns %}<option value="{{ campaign.campaign_id }}" {% if form and form.campaign_id == campaign.campaign_id %}selected{% endif %}>{{ campaign.name }}</option>{% endfor %}</select></div>
-    <details class="full advanced" {% if form %}open{% endif %}><summary>تنظیمات بیشتر</summary><div class="form-grid">
+    <input type="hidden" name="source" value="{{ selected_source }}">
+    {% if selected_source == 'instagram' %}
+    <div class="field full"><label for="search">عبارت جست‌وجوی Instagram</label><input id="search" name="search" value="{{ form.search if form else '' }}" placeholder="مثلاً کافه تهران" required></div>
+    <div class="field"><label for="searchLimit">حداکثر پروفایل</label><input id="searchLimit" name="searchLimit" type="number" min="1" max="250" value="{{ form.searchLimit if form else 10 }}" required></div>
+    {% else %}
+    <div class="field"><label for="query">چه کسب‌وکاری؟</label><input id="query" name="query" value="{{ form.query if form else '' }}" placeholder="مثلاً دندان‌پزشکی" required></div>
+    <div class="field"><label for="location">کدام شهر؟</label><input id="location" name="location" value="{{ form.location if form else '' }}" placeholder="مثلاً تهران" required></div>
     <div class="field"><label for="limit">حداکثر نتیجه</label><input id="limit" name="limit" type="number" min="1" max="100" value="{{ form.limit if form else 20 }}" required></div>
-    <fieldset class="full source-picker">
-      <legend>منابع جست‌وجو</legend>
-      <p class="muted">منابع غیرفعال برای شفافیت نمایش داده می‌شوند و تا زمان تأیید قرارداد قابل انتخاب نیستند.</p>
-      <div class="source-options">
-        {% for item in sources %}
-        <label class="source-option{% if not item.enabled %} is-disabled{% endif %}">
-          <input type="checkbox" name="source" value="{{ item.name }}" {% if (form and item.name in form.sources) or (not form and item.name == 'places') %}checked{% endif %} {% if not item.enabled %}disabled{% endif %}>
-          <span><strong>{{ {'places': 'Google Places', 'google_search': 'Google Search', 'instagram': 'Instagram', 'tiktok': 'TikTok', 'linkedin_jobs': 'LinkedIn Jobs', 'web': 'Web'}[item.name] }}</strong><small>{{ item.description }}{% if not item.enabled %} · فعلاً غیرفعال{% endif %}</small></span>
-        </label>
-        {% endfor %}
-      </div>
-    </fieldset>
-    </div></details>
-    <div class="full"><button class="btn" type="submit">پیدا کردن مشتری‌ها</button></div>
+    {% endif %}
+    <div class="field full"><label for="campaign_id">ذخیره در کدام فهرست؟</label><select id="campaign_id" name="campaign_id" required>{% for campaign in campaigns %}<option value="{{ campaign.campaign_id }}" {% if form and form.campaign_id == campaign.campaign_id %}selected{% endif %}>{{ campaign.name }}</option>{% endfor %}</select></div>
+    {% if campaigns %}
+    <div class="full"><button class="btn" type="submit">{{ 'جست‌وجوی Instagram' if selected_source == 'instagram' else 'جست‌وجوی Google Places' }}</button></div>
+    {% else %}
+    <div class="full notice">هنوز فهرستی برای این منبع ندارید. <a class="btn secondary" href="{{ '/instagram-campaigns' if selected_source == 'instagram' else '/google-places-campaigns' }}">ساخت فهرست</a></div>
+    {% endif %}
   </form>
 </div>
 {% endblock %}

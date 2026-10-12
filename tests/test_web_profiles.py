@@ -20,4 +20,6 @@ def test_web_profile_review(tmp_path):
     assert client.get("/api/profile-candidates/lead-1").status_code == 200
     assert client.get("/profiles/lead-1").status_code == 200
     response = client.post(f"/api/profile-candidates/{candidate_id}/review", json={"status": "rejected", "reason": "no first-party link"})
-    assert response.status_code == 200
+    assert response.status_code == 409
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT status FROM profile_candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()[0] == "probable"

@@ -117,19 +117,16 @@ def test_worker_rejects_unknown_handler_state():
     assert result.state == "failed"
 
 
-def test_worker_preserves_partial_multi_source_result():
+def test_worker_rejects_historical_multi_source_before_handler():
+    from unittest.mock import Mock
     with sqlite3.connect(":memory:") as db:
         migrate(db)
         JobRepository(db).submit({"sources": ["places", "google_search"]}, "key-partial")
-        result = JobWorker(db, "worker-1").run_once(
-            lambda request: {
-                "state": "partial",
-                "completed_steps": ["places"],
-                "sources": [{"source": "places", "state": "succeeded"}, {"source": "google_search", "state": "failed"}],
-            }
-        )
-        assert result and result.state == "partial"
-        assert result.progress["completed_steps"] == ["places"]
+        handler = Mock()
+        result = JobWorker(db, "worker-1").run_once(handler)
+        assert result and result.state == "failed"
+        assert result.error_code == "unsupported_source"
+        handler.assert_not_called()
 
 
 def test_cancel_requested_aborted_result_finishes_as_cancelled():

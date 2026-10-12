@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}بازبینی پروفایل‌ها · نقشهٔ لید{% endblock %}
 {% block content %}
-<section class="hero"><span class="eyebrow">بازبینی دستی</span><h1>پروفایل‌های مرتبط</h1><p>این صفحه فقط رابطهٔ پروفایل عمومی با کسب‌وکار را بررسی می‌کند؛ مالکیت شخصی استنتاج نمی‌شود.</p></section>
-<div class="panel table-wrap"><table class="table"><thead><tr><th>پلتفرم</th><th>نشانی</th><th>وضعیت</th><th>اعتماد</th><th>تصمیم</th></tr></thead><tbody>{% for item in candidates %}<tr><td>{{ item.platform }}</td><td><a href="{{ item.url }}" rel="noreferrer">{{ item.url }}</a></td><td>{{ item.status }}</td><td>{{ item.confidence }}</td><td><button class="btn secondary review" data-id="{{ item.candidate_id }}" data-status="confirmed">تأیید</button> <button class="btn review" data-id="{{ item.candidate_id }}" data-status="rejected">رد</button></td></tr>{% else %}<tr><td colspan="5">موردی برای بازبینی نیست.</td></tr>{% endfor %}</tbody></table></div>
-<script>document.querySelectorAll('.review').forEach(button => button.addEventListener('click', async () => { const response = await fetch(`/api/profile-candidates/${button.dataset.id}/review`, {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({status: button.dataset.status, reason: 'Reviewed in web panel'})}); if (response.ok) window.location.reload(); }));</script>
+<section class="hero"><span class="eyebrow">پروفایل‌های تاریخی</span><h1>پروفایل‌های مرتبط</h1><p>این صفحه فقط رابطهٔ پروفایل عمومی با کسب‌وکار را بررسی می‌کند؛ مالکیت شخصی استنتاج نمی‌شود.</p></section>
+<div class="panel table-wrap"><table class="table"><thead><tr><th>پلتفرم</th><th>نشانی</th><th>وضعیت</th><th>اعتماد</th></tr></thead><tbody>{% for item in candidates %}<tr><td>{{ item.platform }}</td><td><a href="{{ item.url }}" rel="noreferrer">{{ item.url }}</a></td><td>{{ item.status }}</td><td>{{ item.confidence }}</td></tr>{% else %}<tr><td colspan="4">موردی برای بازبینی نیست.</td></tr>{% endfor %}</tbody></table></div>
+<p class="notice">داده‌های این صفحه تاریخی و فقط خواندنی‌اند؛ تکمیل خودکار پروفایل غیرفعال است. جست‌وجوی مستقل Instagram از صفحهٔ جست‌وجو در دسترس است.</p>
 {% endblock %}

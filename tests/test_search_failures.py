@@ -11,7 +11,6 @@ from src.errors import (
     ApifyCredentialError,
     ApifyMalformedResponseError,
     ApifyTransientError,
-    SearchAttemptPersistenceError,
 )
 from src.results import RunStatus, SearchResult
 from src.service import SearchLeadsService
@@ -128,13 +127,11 @@ def test_search_service_reports_failure_when_failure_record_cannot_be_saved(tmp_
         raise sqlite3.OperationalError("database is unavailable")
 
     monkeypatch.setattr(store, "record_failed_search", fail_to_record)
-    with pytest.raises(SearchAttemptPersistenceError) as caught:
+    # Failure journaling must not mask the provider error or turn it into a 500.
+    with pytest.raises(ApifyTransientError) as caught:
         service.search("dentist", "North")
 
-    assert caught.value.__cause__ is original_error
-    assert isinstance(caught.value.__context__, sqlite3.OperationalError)
-    assert "ApifyTransientError" in str(caught.value)
-    assert "OperationalError" in str(caught.value)
+    assert caught.value is original_error
 
 
 def test_invalid_campaign_and_source_do_not_create_failed_runs(tmp_path):

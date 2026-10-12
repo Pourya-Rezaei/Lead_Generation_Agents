@@ -5,6 +5,7 @@ from typing import Any
 from pydantic import BaseModel, Field, model_validator
 
 from .domain import Lead
+from .source_contracts import SourceProjection
 
 
 class RunStatus(str, Enum):
@@ -71,6 +72,12 @@ class SearchResult(BaseModel):
     partial: bool = False
     warnings: list[str] = Field(default_factory=list)
     raw_records: list[dict[str, Any]] = Field(default_factory=list)
+    # Places uses Leads; Instagram persists independent profiles in run projections.
+    projections: list[SourceProjection] = Field(default_factory=list)
+    received_count: int = Field(default=0, ge=0)
+    accepted_count: int = Field(default=0, ge=0)
+    rejected_count: int = Field(default=0, ge=0)
+    rejection_reasons: dict[str, int] = Field(default_factory=dict)
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     finished_at: datetime | None = None
 

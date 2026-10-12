@@ -4,9 +4,7 @@ from typing import Any
 
 from .connectors.base import Connector
 from .connectors.apify_places import ApifyPlacesConnector
-from .connectors.apify_google_search import ApifyGoogleSearchConnector
-from .connectors.apify_linkedin_jobs import ApifyLinkedInJobsConnector
-from .errors import ApifyError
+from .connectors.instagram_search import InstagramDiscoveryConnector
 
 ConnectorFactory = Callable[[Any], Connector]
 
@@ -25,25 +23,19 @@ class SourceCapability:
 
 
 class ConnectorRegistry:
-    def __init__(self) -> None:
+    def __init__(self, settings: Any | None = None) -> None:
+        self.settings = settings
         self._factories: dict[str, ConnectorFactory] = {
             "places": lambda settings: ApifyPlacesConnector(
                 settings.apify_api_token or "", settings.http_timeout
             ),
-            "google_search": lambda settings: ApifyGoogleSearchConnector(
-                settings.apify_api_token or "", settings.http_timeout
-            ),
-            "linkedin_jobs": lambda settings: ApifyLinkedInJobsConnector(
+            "instagram": lambda settings: InstagramDiscoveryConnector(
                 settings.apify_api_token or "", settings.http_timeout
             ),
         }
         self._capabilities = (
             SourceCapability("places", "google_maps", ApifyPlacesConnector.actor, True, "Google Places business listings"),
-            SourceCapability("google_search", "google_search", ApifyGoogleSearchConnector.actor, True, "Google Search candidate results"),
-            SourceCapability("instagram", "instagram", "apify~instagram-scraper", False, "Public business profiles (not enabled)"),
-            SourceCapability("tiktok", "tiktok", "clockworks~tiktok-scraper", False, "Public business profiles (not enabled)"),
-            SourceCapability("linkedin_jobs", "linkedin_jobs", "dataji~apify-linkdin-jobs", True, "Public LinkedIn job listings"),
-            SourceCapability("web", "web", None, False, "Web discovery (not enabled)"),
+            SourceCapability("instagram", "instagram", InstagramDiscoveryConnector.actor, True, "Independent standard profile search; no geographic guarantee"),
         )
         self._capability_by_name = {item.name: item for item in self._capabilities}
 
@@ -59,8 +51,8 @@ class ConnectorRegistry:
 
     def select_sources(self, names: Iterable[str]) -> tuple[SourceCapability, ...]:
         selected = tuple(names)
-        if not selected:
-            raise ValueError("at least one source must be selected")
+        if len(selected) != 1:
+            raise ValueError("exactly one source must be selected")
         if len(set(selected)) != len(selected):
             raise ValueError("sources must be unique")
         for name in selected:

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}فهرست‌های Instagram · نقشهٔ لید{% endblock %}
+{% block content %}
+<section class="hero"><span class="eyebrow">Instagram / فضای کاری</span><h1>فهرست‌های مستقل Instagram</h1>
+<p>پروفایل‌های عمومی تجاری؛ نتایج قدیمی به این فهرست‌ها وارد نمی‌شوند.</p>
+<div class="actions"><a class="btn" href="/search?source=instagram">جست‌وجوی Instagram</a></div></section>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<details class="advanced" {% if not campaigns %}open{% endif %}><summary>ساخت فهرست Instagram</summary>
+<form method="post" action="/instagram-campaigns" class="form-grid">
+<div class="field"><label for="name">نام فهرست</label><input id="name" name="name" placeholder="مثلاً کافه‌های تهران" required></div>
+<div class="field"><label for="campaign_id">شناسه</label><input id="campaign_id" name="campaign_id" dir="ltr" placeholder="tehran-cafes" required></div>
+<div class="field full"><label for="description">توضیح اختیاری</label><input id="description" name="description"></div>
+<div class="full"><button class="btn" type="submit">ساخت فهرست Instagram</button></div>
+</form>
+</details>
+<section class="section-head"><h2>فهرست‌های شما</h2><span class="muted">{{ campaigns|length }} فهرست</span></section>
+<ul class="list">{% for campaign in campaigns %}<li><a href="/instagram-campaigns/{{ campaign.campaign_id }}"><strong>{{ campaign.name }}</strong><code>{{ campaign.campaign_id }}</code></a></li>{% else %}<li class="empty-state">هنوز فهرستی ندارید.</li>{% endfor %}</ul>
+{% endblock %}

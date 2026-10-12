@@ -1,5 +1,10 @@
 # عیب‌یابی
 
+## Current release boundary (2026-10-11)
+
+Only Google Places and independent Instagram Search are executable. Instagram is standard-only (`liveSearch=false`, enhancement=false), one comma-free phrase, default 10 and limit 1..250. Requests, profiles, reload and exports are source-specific; no contact extraction or geographic guarantee. Existing SQLite/history are preserved. Any references below to Google Search, LinkedIn, YouTube, TikTok or Instagram enrichment are **historical**, not active product capabilities. See [the current integration contract](06-apify-integration.md) and [operations](02-operations-guide.md). No paid smoke or live-mode certification was performed.
+
+
 ## `APIFY_API_TOKEN is required`
 
 فایل `.env` در پوشه اجرای command وجود ندارد، token خالی است یا settings آن را بارگذاری نمی‌کند. مقدار token را بررسی و shell را دوباره فعال کنید.

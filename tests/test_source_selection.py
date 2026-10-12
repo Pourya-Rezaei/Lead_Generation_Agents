@@ -1,36 +1,17 @@
 import pytest
-
-from src.registry import ConnectorRegistry, DisabledSourceError
-from src.service import SearchLeadsService
+from src.registry import ConnectorRegistry
 
 
-def test_capabilities_describe_platform_and_disabled_actors_without_running_them():
+def test_exactly_two_enabled_sources():
     capabilities = {item.name: item for item in ConnectorRegistry().capabilities()}
-
-    assert capabilities["places"].enabled is True
-    assert capabilities["places"].platform == "google_maps"
-    assert capabilities["instagram"].enabled is False
-    assert capabilities["instagram"].actor == "apify~instagram-scraper"
+    assert set(capabilities) == {"places", "instagram"}
+    assert all(item.enabled for item in capabilities.values())
+    assert capabilities["instagram"].actor == "apify~instagram-search-scraper"
 
 
-def test_select_sources_validates_all_sources_and_preserves_platform_specific_results():
-    selected = ConnectorRegistry().select_sources(["places", "google_search"])
-
-    assert [item.name for item in selected] == ["places", "google_search"]
-    assert [item.platform for item in selected] == ["google_maps", "google_search"]
-
-
-def test_disabled_social_source_fails_safely_before_connector_creation():
+def test_single_source_selection():
     registry = ConnectorRegistry()
-
-    with pytest.raises(DisabledSourceError, match="source 'instagram' is disabled"):
-        registry.select_sources(["places", "instagram"])
-
-
-def test_service_exposes_backward_compatible_capability_selection(tmp_path):
-    from src.config import Settings
-
-    service = SearchLeadsService(Settings(database_path=str(tmp_path / "leads.db")))
-
-    assert service.select_sources(("google_search",))[0].actor == "apify~google-search-scraper"
-    assert {item.name for item in service.source_capabilities()} >= {"places", "google_search", "instagram"}
+    assert registry.select_sources(["instagram"])[0].platform == "instagram"
+    for sources in ([], ["places", "instagram"], ["places", "places"], ["google_search"], ["tiktok"]):
+        with pytest.raises(ValueError):
+            registry.select_sources(sources)
